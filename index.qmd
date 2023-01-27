@@ -1,0 +1,104 @@
+---
+title: "Habituation simulation"
+subtitle: "Simulations to measure the performance of a nonlinear model of habituation"
+format: html
+author: Andrew MacDonald
+theme: darkly
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", tar_simple = TRUE)
+library(brms)
+library(tidyverse)
+library(tidybayes)
+```
+
+```{r}
+library(targets)
+# tar_unscript()
+```
+
+```{targets functions-packages, tar_globals = TRUE}
+options(tidyverse.quiet = TRUE)
+tar_option_set(packages = c("brms", "tibble", "tidybayes", "ggplot2"))
+
+hab_curve <- function(x, M, p, d){
+  M * (1 - p*x/(d + x))
+}
+```
+
+Begin by plotting the model's curve 
+
+```{targets one_curve, tar_simple = TRUE}
+tibble(nobs = 0:30, mu = hab_curve(nobs, M = 200, p = .3, d = 2)) |> 
+  ggplot(aes(x = nobs, y = mu)) + 
+  geom_line() + 
+  coord_cartesian(xlim = c(0, 30), ylim = c(0, 300)) + 
+  theme_bw()
+```
+
+try simulating observations
+
+```{targets one_tamia, tar_simple = TRUE}
+alpha <- 8
+tibble(nobs = 0:30,
+       mu = hab_curve(nobs, M = 200, p = .93, d = 2),
+       FID = rgamma(n = length(nobs), shape = alpha, rate = alpha/mu)
+       )
+```
+
+
+```{targets one_tamia_figure, tar_simple = TRUE}
+one_tamia |> 
+  ggplot(aes(x = nobs, y = FID)) + geom_point() + 
+  geom_line(aes(y = mu)) + 
+  coord_cartesian(ylim = c(0, 210), xlim = c(0, 35))
+```
+
+```{r}
+targets::tar_make()
+```
+
+```{r fig.cap="simple figure showing a single tamia and observations of its FID."}
+targets::tar_read(one_tamia_figure)
+```
+
+```{r}
+plot(tar_read(one_curve2), type = "l")
+```
+
+Our actual model -- the simpler one, TK what is it called in the MS, is 
+
+
+$$
+\begin{align}
+\text{FID} &\sim \text{Gamma}(\alpha, \alpha/\mu) \\
+\mu &\sim M \times 1000 \times \left(1 - \frac{p \times X}{d + X} \right) \\
+\text{logit}(M) &= M_0 + \beta_{M, i}\\
+\text{logit}(p) &= p_0 + \beta_{p, i}\\
+\text{log}(d)   &= d_0 + \beta_{d, i}\\
+\begin{bmatrix}  \beta_{M} \  \beta_{p} \  \beta_{d} \end{bmatrix} &\sim N\left(\begin{bmatrix} 0 \ 0 \ 0 \end{bmatrix}, \Sigma\right) \\
+\Sigma &= \text{diag}(\sigma_M, \sigma_p, \sigma_d) \times \text{R} \times \text{diag}(\sigma_M, \sigma_p, \sigma_d) \\
+\sigma_M &\sim \text{Exponential}(4) \\
+\sigma_p &\sim \text{Exponential}(2) \\
+\sigma_d &\sim \text{Exponential}(2) \\
+\text{R} &\sim \text{LKJ}(2) \\
+M_0 &\sim N(0.5, 0.5)\\
+p_0 &\sim N(-1, 0.2)\\
+d_0 &\sim N(1.5, 0.5)\\
+\alpha &\sim \text{Gamma}(6.25, .25)
+\end{align}
+$$
+
+
+```{r eval = FALSE}
+# Formula of the model 
+nonlin_form <- bf(FID ~ inv_logit(logitM) * 1000 * (1 - inv_logit(logitp)*num_obs/(exp(logd) + num_obs)),
+                  logitM ~ 1 + (1 |t| tamia_id),
+                  logitp ~ 1 + (1 |t| tamia_id),
+                  logd ~ 1 + (1 |t| tamia_id),
+                  nl = TRUE,
+                  family = Gamma(link = "identity"))
+```
+
+
