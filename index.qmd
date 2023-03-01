@@ -3,10 +3,11 @@ title: "Habituation simulation"
 subtitle: "Simulations to measure the performance of a nonlinear model of habituation"
 format: html
 author: Andrew MacDonald
-theme: darkly
+theme: minty
 ---
 
 ```{r setup, include = FALSE}
+options(tidyverse.quiet = TRUE)
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", tar_simple = TRUE)
 library(brms)
 library(tidyverse)
@@ -15,60 +16,11 @@ library(tidybayes)
 
 ```{r}
 library(targets)
-# tar_unscript()
 ```
 
-```{targets functions-packages, tar_globals = TRUE}
-options(tidyverse.quiet = TRUE)
-tar_option_set(packages = c("brms", "tibble", "tidybayes", "ggplot2"))
+## Mathematical description
 
-hab_curve <- function(x, M, p, d){
-  M * (1 - p*x/(d + x))
-}
-```
-
-Begin by plotting the model's curve 
-
-```{targets one_curve, tar_simple = TRUE}
-tibble(nobs = 0:30, mu = hab_curve(nobs, M = 200, p = .3, d = 2)) |> 
-  ggplot(aes(x = nobs, y = mu)) + 
-  geom_line() + 
-  coord_cartesian(xlim = c(0, 30), ylim = c(0, 300)) + 
-  theme_bw()
-```
-
-try simulating observations
-
-```{targets one_tamia, tar_simple = TRUE}
-alpha <- 8
-tibble(nobs = 0:30,
-       mu = hab_curve(nobs, M = 200, p = .93, d = 2),
-       FID = rgamma(n = length(nobs), shape = alpha, rate = alpha/mu)
-       )
-```
-
-
-```{targets one_tamia_figure, tar_simple = TRUE}
-one_tamia |> 
-  ggplot(aes(x = nobs, y = FID)) + geom_point() + 
-  geom_line(aes(y = mu)) + 
-  coord_cartesian(ylim = c(0, 210), xlim = c(0, 35))
-```
-
-```{r}
-targets::tar_make()
-```
-
-```{r fig.cap="simple figure showing a single tamia and observations of its FID."}
-targets::tar_read(one_tamia_figure)
-```
-
-```{r}
-plot(tar_read(one_curve2), type = "l")
-```
-
-Our actual model -- the simpler one, TK what is it called in the MS, is 
-
+This document is created to validate the following model of Flight Initiation distance:
 
 $$
 \begin{align}
@@ -91,9 +43,21 @@ d_0 &\sim N(1.5, 0.5)\\
 $$
 
 
-```{r eval = FALSE}
+Begin by plotting the model's curve:
+
+```{r one_curve}
+tar_load(one_curve)
+one_curve
+```
+
+```{r one_tamia_figure}
+tar_load(one_sim_plot)
+one_sim_plot
+```
+
+```{r nonlin_form,  eval = FALSE}
 # Formula of the model 
-nonlin_form <- bf(FID ~ inv_logit(logitM) * 1000 * (1 - inv_logit(logitp)*num_obs/(exp(logd) + num_obs)),
+bf(FID ~ inv_logit(logitM) * 1000 * (1 - inv_logit(logitp)*num_obs/(exp(logd) + num_obs)),
                   logitM ~ 1 + (1 |t| tamia_id),
                   logitp ~ 1 + (1 |t| tamia_id),
                   logd ~ 1 + (1 |t| tamia_id),
@@ -102,3 +66,23 @@ nonlin_form <- bf(FID ~ inv_logit(logitM) * 1000 * (1 - inv_logit(logitp)*num_ob
 ```
 
 
+```{r nonlin_priors, eval=FALSE}
+c(prior(lkj(2), class = "cor"),
+                   prior(exponential(2), class = "sd", nlpar = "logd"),
+                   prior(exponential(4), class = "sd", nlpar = "logitM"),
+                   prior(exponential(2), class = "sd", nlpar = "logitp"),
+                   prior(normal(1.5, .5), class = "b", nlpar = "logd"),
+                   prior(normal(.5,.5), class = "b", nlpar = "logitM"),
+                   prior(normal(-1, .2), class = "b", nlpar = "logitp"),
+                   prior(gamma(6.25, .25), class = "shape"))
+```
+
+```{r nonlin_model, eval=FALSE}
+brm(nonlin_form,
+    data = fake_id,
+    prior = nonlin_priors,
+    backend = "cmdstanr",
+    file = "prior_nonlin",
+    chains = 0,
+    file_refit = "on_change")
+```
