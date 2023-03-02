@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.2.335">
+<meta name="generator" content="quarto-1.2.269">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -172,33 +172,49 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 <p><img src="index_files/figure-html/one_tamia_figure-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
+</section>
+<section id="prior-predictive-simulations" class="level2">
+<h2 class="anchored" data-anchor-id="prior-predictive-simulations">Prior predictive simulations</h2>
+<p>define a model that matches the above in <code>brms</code>:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Formula of the model </span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">bf</span>(FID <span class="sc">~</span> <span class="fu">inv_logit</span>(logitM) <span class="sc">*</span> <span class="dv">1000</span> <span class="sc">*</span> (<span class="dv">1</span> <span class="sc">-</span> <span class="fu">inv_logit</span>(logitp)<span class="sc">*</span>num_obs<span class="sc">/</span>(<span class="fu">exp</span>(logd) <span class="sc">+</span> num_obs)),</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>                  logitM <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span>t<span class="sc">|</span> tamia_id),</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>                  logitp <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span>t<span class="sc">|</span> tamia_id),</span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>                  logd <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span>t<span class="sc">|</span> tamia_id),</span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>                  <span class="at">nl =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>                  <span class="at">family =</span> <span class="fu">Gamma</span>(<span class="at">link =</span> <span class="st">"identity"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_read</span>(model_bf)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; FID ~ inv_logit(logitM) * 1000 * (1 - inv_logit(logitp) * num_obs/(exp(logd) + num_obs)) </span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; logitM ~ 1 + (1 | t | tamia_id)</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; logitp ~ 1 + (1 | t | tamia_id)</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; logd ~ 1 + (1 | t | tamia_id)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>and define priors that correspond to this model as well:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">c</span>(<span class="fu">prior</span>(<span class="fu">lkj</span>(<span class="dv">2</span>), <span class="at">class =</span> <span class="st">"cor"</span>),</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>                   <span class="fu">prior</span>(<span class="fu">exponential</span>(<span class="dv">2</span>), <span class="at">class =</span> <span class="st">"sd"</span>, <span class="at">nlpar =</span> <span class="st">"logd"</span>),</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>                   <span class="fu">prior</span>(<span class="fu">exponential</span>(<span class="dv">4</span>), <span class="at">class =</span> <span class="st">"sd"</span>, <span class="at">nlpar =</span> <span class="st">"logitM"</span>),</span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>                   <span class="fu">prior</span>(<span class="fu">exponential</span>(<span class="dv">2</span>), <span class="at">class =</span> <span class="st">"sd"</span>, <span class="at">nlpar =</span> <span class="st">"logitp"</span>),</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>                   <span class="fu">prior</span>(<span class="fu">normal</span>(<span class="fl">1.5</span>, .<span class="dv">5</span>), <span class="at">class =</span> <span class="st">"b"</span>, <span class="at">nlpar =</span> <span class="st">"logd"</span>),</span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>                   <span class="fu">prior</span>(<span class="fu">normal</span>(.<span class="dv">5</span>,.<span class="dv">5</span>), <span class="at">class =</span> <span class="st">"b"</span>, <span class="at">nlpar =</span> <span class="st">"logitM"</span>),</span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>                   <span class="fu">prior</span>(<span class="fu">normal</span>(<span class="sc">-</span><span class="dv">1</span>, .<span class="dv">2</span>), <span class="at">class =</span> <span class="st">"b"</span>, <span class="at">nlpar =</span> <span class="st">"logitp"</span>),</span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>                   <span class="fu">prior</span>(<span class="fu">gamma</span>(<span class="fl">6.25</span>, .<span class="dv">25</span>), <span class="at">class =</span> <span class="st">"shape"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_read</span>(model_priors)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;              prior class coef group resp dpar  nlpar   lb   ub source</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;             lkj(2)   cor                             &lt;NA&gt; &lt;NA&gt;   user</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     exponential(2)    sd                        logd &lt;NA&gt; &lt;NA&gt;   user</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     exponential(4)    sd                      logitM &lt;NA&gt; &lt;NA&gt;   user</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     exponential(2)    sd                      logitp &lt;NA&gt; &lt;NA&gt;   user</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   normal(1.5, 0.5)     b                        logd &lt;NA&gt; &lt;NA&gt;   user</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   normal(0.5, 0.5)     b                      logitM &lt;NA&gt; &lt;NA&gt;   user</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    normal(-1, 0.2)     b                      logitp &lt;NA&gt; &lt;NA&gt;   user</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  gamma(6.25, 0.25) shape                             &lt;NA&gt; &lt;NA&gt;   user</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>start to plot the prior predictive distribution</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">brm</span>(nonlin_form,</span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> fake_id,</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">prior =</span> nonlin_priors,</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">backend =</span> <span class="st">"cmdstanr"</span>,</span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">file =</span> <span class="st">"prior_nonlin"</span>,</span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">chains =</span> <span class="dv">0</span>,</span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">file_refit =</span> <span class="st">"on_change"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(model_prior_sim)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>tibble<span class="sc">::</span><span class="fu">tibble</span>(<span class="at">tamia_id =</span> <span class="st">"un_tamia"</span>,</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>       <span class="at">num_obs =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  tidybayes<span class="sc">::</span><span class="fu">add_predicted_draws</span>(model_prior_sim,</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">ndraws =</span> <span class="dv">15</span>,</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">seed =</span> <span class="dv">1234</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> .prediction)) <span class="sc">+</span> </span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_point</span>() <span class="sc">+</span> </span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">facet_wrap</span>(<span class="sc">~</span>.draw, <span class="at">ncol=</span><span class="dv">5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Yes I could probably use the prior predictive distribution to fit the model to every prior draw – but tbh this is harder to think about.</p>
+<div class="cell">
+
 </div>
 </section>
 

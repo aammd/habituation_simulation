@@ -55,34 +55,53 @@ tar_load(one_sim_plot)
 one_sim_plot
 ```
 
-```{r nonlin_form,  eval = FALSE}
-# Formula of the model 
-bf(FID ~ inv_logit(logitM) * 1000 * (1 - inv_logit(logitp)*num_obs/(exp(logd) + num_obs)),
-                  logitM ~ 1 + (1 |t| tamia_id),
-                  logitp ~ 1 + (1 |t| tamia_id),
-                  logd ~ 1 + (1 |t| tamia_id),
-                  nl = TRUE,
-                  family = Gamma(link = "identity"))
+
+## Prior predictive simulations
+
+define a model that matches the above in `brms`:
+
+```{r}
+tar_read(model_bf)
+```
+
+and define priors that correspond to this model as well:
+
+```{r}
+tar_read(model_priors)
+```
+
+start to plot the prior predictive distribution
+
+```{r}
+tar_load(model_prior_sim)
+
+tibble::tibble(tamia_id = "un_tamia",
+       num_obs = 1:20) |> 
+  tidybayes::add_predicted_draws(model_prior_sim,
+                                 ndraws = 15,
+                                 seed = 1234) |> 
+  ggplot2::ggplot(ggplot2::aes(x = num_obs, y = .prediction)) + 
+  ggplot2::geom_point() + 
+  ggplot2::facet_wrap(~.draw, ncol=5)
 ```
 
 
-```{r nonlin_priors, eval=FALSE}
-c(prior(lkj(2), class = "cor"),
-                   prior(exponential(2), class = "sd", nlpar = "logd"),
-                   prior(exponential(4), class = "sd", nlpar = "logitM"),
-                   prior(exponential(2), class = "sd", nlpar = "logitp"),
-                   prior(normal(1.5, .5), class = "b", nlpar = "logd"),
-                   prior(normal(.5,.5), class = "b", nlpar = "logitM"),
-                   prior(normal(-1, .2), class = "b", nlpar = "logitp"),
-                   prior(gamma(6.25, .25), class = "shape"))
+
+
+Yes I could probably use the prior predictive distribution to fit the model to every prior draw -- but tbh this is harder to think about.
+
+```{r}
+## simulate from priors to get model parameters
+true_cor <- rethinking::rlkjcorr(1, K = 3, eta = 2)
+true_sd_logd <- rexp(1, 2)
+true_sd_logitM <- rexp(1, 4)
+true_sd_logitp <- rexp(1, 2)
+true_b_logd <- rnorm(1, 1.5, sd = .5)
+true_b_logitM <- rnorm(1, .5, .5)
+true_b_logitp <- rnorm(1, -1, .2)
+true_shape <- rgamma(1, 6.25, .25)
+
 ```
 
-```{r nonlin_model, eval=FALSE}
-brm(nonlin_form,
-    data = fake_id,
-    prior = nonlin_priors,
-    backend = "cmdstanr",
-    file = "prior_nonlin",
-    chains = 0,
-    file_refit = "on_change")
-```
+
+

@@ -6,6 +6,7 @@
 # Load packages required to define the pipeline:
 library(targets)
 library(tarchetypes)
+library(quarto)
 # library(tarchetypes) # Load other packages as needed. # nolint
 
 # Set target options:
@@ -30,15 +31,18 @@ list(
   tar_target(
     name = data,
     command = {
-      tibble::tibble(nobs = 0:30,
-                     mu = hab_curve(nobs, M = 200, p = .3, d = 2))
+      tibble::tibble(num_obs = 0:30,
+                     mu = hab_curve(num_obs,
+                                    M = 200,
+                                    p = .3,
+                                    d = 2))
     }
   ),
   tar_target(
     name = one_curve,
     command = {
       data |>
-        ggplot(aes(x = nobs, y = mu)) +
+        ggplot(aes(x = num_obs, y = mu)) +
         geom_line() +
         coord_cartesian(xlim = c(0, 30), ylim = c(0, 300)) +
         theme_bw() +
@@ -49,5 +53,48 @@ list(
              simulate_one_tamia()),
   tar_target(one_sim_plot,
              plot_one_tamia(one_simulation)),
+  tar_target(
+    model_bf,
+    bf(FID ~ inv_logit(logitM) * 1000 * (1 - inv_logit(logitp)*num_obs/(exp(logd) + num_obs)),
+                  logitM ~ 1 + (1 |t| tamia_id),
+                  logitp ~ 1 + (1 |t| tamia_id),
+                  logd ~ 1 + (1 |t| tamia_id),
+                  nl = TRUE,
+                  family = Gamma(link = "identity"))
+  ),
+  tar_target(
+    model_priors,
+    c(
+      prior(lkj(2), class = "cor"),
+      prior(exponential(2), class = "sd", nlpar = "logd"),
+      prior(exponential(4), class = "sd", nlpar = "logitM"),
+      prior(exponential(2), class = "sd", nlpar = "logitp"),
+      prior(normal(1.5, .5), class = "b", nlpar = "logd"),
+      prior(normal(.5,.5), class = "b", nlpar = "logitM"),
+      prior(normal(-1, .2), class = "b", nlpar = "logitp"),
+      prior(gamma(6.25, .25), class = "shape")
+    )
+  ),
+  tar_target(
+    model_prior_sim,
+    brm(model_bf,
+        data = one_simulation,
+        prior = model_priors,
+        backend = "cmdstanr",
+        chains = 1,
+        iter = 100,
+        sample_prior = "only",
+        file_refit = "on_change")
+  ),
+
+
+
+
+
+
+
+
+
+
   tar_quarto(site, path = "index.qmd")
 )
