@@ -51,7 +51,12 @@ make_unnest_prior_dataframe <- function(prediction_df,
                                         original_data,
                                         x_name){
   prediction_df |>
-    dplyr::mutate(num_obs = list(original_data[[x_name]])) |>
+    dplyr::mutate(num_obs = list(original_data[x_name])) |>
     tidyr::unnest(cols = c(epred, preds, num_obs))
 }
 
+make_five_tamia <- function(){
+  expand.grid(tamia_id = paste0("tamia", 1:5),
+              num_obs = c(0, 5, 15, 20, 25, 30),
+              FID = 1)
+}

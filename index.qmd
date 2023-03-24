@@ -14,9 +14,6 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>", tar_simple = TRUE)
 library(brms)
 library(tidyverse)
 library(tidybayes)
-```
-
-```{r}
 library(targets)
 ```
 
@@ -150,4 +147,80 @@ true_tamia_params <- MASS::mvrnorm(n = n_tamia, mu = c(0,0,0), Sigma = VarCov_ta
 ```
 
 
+This is how the model predicts for just ONE animal. How does the model think about variation? 
+In other words, what are the effects of the hyperpriors on individual variation in $M$, $d$ and $p$?
+
+```{r}
+tar_load(fivetamia_prior_predictive_df)
+
+fivetamia_prior_predictive_df |> 
+  ggplot(aes(x = num_obs,
+             y = epred, 
+             group = tamia_id)) + 
+  geom_line() + 
+  facet_wrap(~draw_id, ncol = 5) + 
+  # coord_cartesian(ylim = c(0, 1000)) + 
+  # geom_hline(yintercept = 1000, lty = 2) +
+  theme_bw()
+
+```
+
+i admit I find this whole thing a little difficult to conceptualize, since the parameters are WIDE but the data is long
+
+```{r}
+five_tamia_data <- fivetamia_prior_predictive_df |> 
+  relocate(num_obs, .before = epred) |> 
+  select(-(epred:tamia_id)) |> 
+  pivot_longer(cols = starts_with("r"), names_to = "tamia_eff", values_to = "val") |> 
+  mutate(tamia_id = stringr::str_extract(tamia_eff, "(?<=\\[)(.*?)(?=\\,)"),
+         pname = stringr::str_extract(tamia_eff, "(?<=\\_{2})(.*?)(?=\\[)")) |> 
+  select(-tamia_eff) |> 
+  ungroup() |> 
+  distinct() |> 
+  pivot_wider(names_from = "pname", values_from = "val")
+
+
+five_tamia_data |> 
+  mutate(M = plogis(b_logitM_Intercept + logitM),
+         d = exp(b_logd_Intercept + logd),
+         p = plogis(b_logitp_Intercept + logitp),
+         mu = 1000*M*(1 - (p*num_obs)/(d + num_obs))) |> 
+  ggplot(aes(x = num_obs, y = mu, group = tamia_id)) + geom_line() + 
+  facet_wrap( ~ draw_id)
+```
+
+## fit the model to every subset here
+
+I would like to see if I can fit the compiled model to each of these simulated datasets.
+
+```{r}
+tar_load(many_models)
+
+many_posterior_summaries <- many_models |> 
+  map(brms::posterior_summary) |> 
+  map(as.data.frame) |> 
+  map(tibble::rownames_to_column, var = "param_name")
+
+tar_load(fivetamia_prior_predictive_draws)
+
+demo <- fivetamia_prior_predictive_draws |> 
+  ungroup() |> 
+  select(draw_id, b_logitM_Intercept:`r_tamia_id__logd[tamia5,Intercept]`) |> 
+  pivot_longer(cols = -draw_id, names_to = "param_name", values_to = "true_value") |> 
+  group_by(draw_id) |> 
+  nest() |> 
+  ungroup() |> 
+  mutate(post = many_posterior_summaries) |> 
+  rowwise() |> 
+  mutate(compare = list(left_join(data, post)))
+
+demo |> 
+  select(draw_id, compare) |> 
+  unnest(cols = "compare") |> 
+  mutate(true_covered = true_value > Q2.5 & true_value < Q97.5) |> 
+  group_by(param_name) |> 
+  summarize(percent_cov = sum(true_covered)/n_distinct(draw_id)) |> 
+  ggplot(aes(y = param_name, x = percent_cov)) + 
+  geom_point()
+```
 

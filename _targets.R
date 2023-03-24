@@ -21,6 +21,8 @@ tar_option_set(
 # tar_make_clustermq() configuration (okay to leave alone):
 options(clustermq.scheduler = "multicore")
 
+options("cmdstanr_write_stan_file_dir" = "cmdstanr")
+
 # tar_make_future() configuration (okay to leave alone):
 # Install packages {{future}}, {{future.callr}}, and {{future.batchtools}} to allow use_targets() to configure tar_make_future() options.
 
@@ -99,6 +101,60 @@ list(
       original_data = one_simulation,
       x_name = "num_obs")
   ),
+  tar_target(
+    model_prior_fivetamia_sim,
+    brm(model_bf,
+        data = make_five_tamia(),
+        prior = model_priors,
+        backend = "cmdstanr",
+        chains = 1,
+        iter = 100,
+        sample_prior = "only",
+        file_refit = "on_change")
+  ),
+  tar_target(
+    fivetamia_prior_predictive_draws,
+    command = make_prior_draws_df(brms_prior_model = model_prior_fivetamia_sim)
+  ),
+  tar_target(
+    fivetamia_prior_predictive_df,
+    command = make_unnest_prior_dataframe(
+      fivetamia_prior_predictive_draws,
+      original_data = make_five_tamia(),
+      x_name = c("num_obs", "tamia_id"))
+  ),
+  tar_target(
+    fivetamia_group,
+    fivetamia_prior_predictive_df |>
+      dplyr::mutate(FID = epred) |>
+      dplyr::group_by(draw_id) |>
+      tar_group(),
+    iteration = "group"
+  ),
+  tar_target(
+    demodat,
+    fivetamia_prior_predictive_df |>
+      dplyr::mutate(FID = epred) |>
+      dplyr::filter(draw_id == 31)
+  ),
+  tar_target(
+    sampling_model,
+    command = update(model_prior_fivetamia_sim,
+                     newdata = demodat,
+                     sample_prior = "no",
+                     chains = 2, iter = 2000)
+  ),
+  tar_target(
+    smod2,
+    command = update(sampling_model, newdata = demodat)
+  ),
+  tar_target(
+    many_models,
+    update(smod2, newdata = fivetamia_group, recompile = FALSE),
+    pattern = map(fivetamia_group),
+    iteration = "list"
+  ),
+
 
 
 
