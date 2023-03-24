@@ -11,7 +11,9 @@ library(quarto)
 
 # Set target options:
 tar_option_set(
-  packages = c("brms", "tibble", "tidybayes", "ggplot2", "tarchetypes"), # packages that your targets need to run
+  packages = c("brms", "tibble",
+               "tidybayes", "ggplot2",
+               "tarchetypes"), # packages that your targets need to run
   format = "rds" # default storage format
   # Set other options as needed.
 )
@@ -71,7 +73,7 @@ list(
       prior(exponential(2), class = "sd", nlpar = "logitp"),
       prior(normal(1.5, .5), class = "b", nlpar = "logd"),
       prior(normal(.5,.5), class = "b", nlpar = "logitM"),
-      prior(normal(-1, .2), class = "b", nlpar = "logitp"),
+      prior(normal(1, .5), class = "b", nlpar = "logitp"),
       prior(gamma(6.25, .25), class = "shape")
     )
   ),
@@ -85,6 +87,17 @@ list(
         iter = 100,
         sample_prior = "only",
         file_refit = "on_change")
+  ),
+  tar_target(
+    prior_predictive_draws,
+    command = make_prior_draws_df(brms_prior_model = model_prior_sim)
+  ),
+  tar_target(
+    prior_predictive_df,
+    command = make_unnest_prior_dataframe(
+      prior_predictive_draws,
+      original_data = one_simulation,
+      x_name = "num_obs")
   ),
 
 

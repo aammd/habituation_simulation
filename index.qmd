@@ -7,6 +7,8 @@ theme: minty
 ---
 
 ```{r setup, include = FALSE}
+#| message: false
+#| warning: false
 options(tidyverse.quiet = TRUE)
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", tar_simple = TRUE)
 library(brms)
@@ -73,25 +75,58 @@ tar_read(model_priors)
 start to plot the prior predictive distribution
 
 ```{r}
+#| fig-cap: Simulations from the prior predictive distribution for our model of FID (Flight initiation distance).
+
 tar_load(model_prior_sim)
 
-tibble::tibble(tamia_id = "un_tamia",
-       num_obs = 1:20) |> 
+un_tamia <- tibble::tibble(tamia_id = "un_tamia",
+               num_obs = 1:20)
+
+un_tamia_pred <- un_tamia |> 
   tidybayes::add_predicted_draws(model_prior_sim,
                                  ndraws = 15,
-                                 seed = 1234) |> 
+                                 seed = 1234)
+
+un_tamia_expect <- un_tamia |> 
+  tidybayes::add_epred_draws(model_prior_sim,
+                             ndraws = 15, 
+                             seed = 1234)
+
+un_tamia_expect |> 
+  left_join(un_tamia_pred) |>
   ggplot2::ggplot(ggplot2::aes(x = num_obs, y = .prediction)) + 
   ggplot2::geom_point() + 
-  ggplot2::facet_wrap(~.draw, ncol=5)
+  ggplot2::geom_line(aes(y = .epred)) + 
+  ggplot2::facet_wrap(~.draw, ncol=5) + 
+  labs(x = "Number of observations", y = "FID") + 
+  theme_bw()
+```
+
+```{r}
+#| fig-cap: Prior predictive simulations directly from the brms model and associated prior.
+#| 
+# this is another way to do the same sort of process: 
+
+tar_load(prior_predictive_df)
+
+prior_predictive_df |> 
+  ggplot(aes(x = num_obs,
+             y = epred)) + 
+  geom_line() + 
+  geom_point(aes(y = preds)) +
+  facet_wrap(~draw_id, ncol = 5) + 
+  coord_cartesian(ylim = c(0, 1200)) + 
+  geom_hline(yintercept = 1000, lty = 2) +
+  theme_bw()
 ```
 
 
-
-
-Yes I could probably use the prior predictive distribution to fit the model to every prior draw -- but tbh this is harder to think about.
+# Parameter recovery
 
 ```{r}
 ## simulate from priors to get model parameters
+n_tamia <- 30
+# 'fixed' and hyperparameters
 true_cor <- rethinking::rlkjcorr(1, K = 3, eta = 2)
 true_sd_logd <- rexp(1, 2)
 true_sd_logitM <- rexp(1, 4)
@@ -100,7 +135,18 @@ true_b_logd <- rnorm(1, 1.5, sd = .5)
 true_b_logitM <- rnorm(1, .5, .5)
 true_b_logitp <- rnorm(1, -1, .2)
 true_shape <- rgamma(1, 6.25, .25)
+# tamia parameters
+VarCov_tamia <- 
+  diag(c(true_sd_logitM,
+       true_sd_logitp,
+       true_sd_logd)) %*% true_cor %*% 
+  diag(c(true_sd_logitM,
+       true_sd_logitp,
+       true_sd_logd))
+true_tamia_params <- MASS::mvrnorm(n = n_tamia, mu = c(0,0,0), Sigma = VarCov_tamia)
 
+# linear predictors for all three parts of the model
+# logit_M <- true_b_logitM + true
 ```
 
 

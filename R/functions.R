@@ -33,5 +33,25 @@ plot_one_tamia <- function(df){
     theme_bw()
 }
 
+make_prior_draws_df <- function(brms_prior_model,
+                             draw_vec = 25:44){
+  brms_prior_model |>
+    as.data.frame(draw = draw_vec) |>
+    dplyr::mutate(draw_id = draw_vec) |>
+    dplyr::rowwise() |>
+    dplyr::mutate(epred = list(
+      brms::posterior_epred(
+        brms_prior_model, draw_ids = draw_id) |> c()),
+      preds = list(
+        brms::posterior_predict(
+          brms_prior_model, draw_ids = draw_id) |> c()))
+}
 
+make_unnest_prior_dataframe <- function(prediction_df,
+                                        original_data,
+                                        x_name){
+  prediction_df |>
+    dplyr::mutate(num_obs = list(original_data[[x_name]])) |>
+    tidyr::unnest(cols = c(epred, preds, num_obs))
+}
 
