@@ -193,7 +193,7 @@ five_tamia_data |>
 
 I would like to see if I can fit the compiled model to each of these simulated datasets.
 
-```{r}
+```{r, error=TRUE}
 tar_load(many_models)
 
 many_posterior_summaries <- many_models |> 
@@ -210,7 +210,7 @@ demo <- fivetamia_prior_predictive_draws |>
   group_by(draw_id) |> 
   nest() |> 
   ungroup() |> 
-  mutate(post = many_posterior_summaries) |> 
+  mutate(post = list(many_posterior_summaries)) |> 
   rowwise() |> 
   mutate(compare = list(left_join(data, post)))
 
@@ -222,5 +222,29 @@ demo |>
   summarize(percent_cov = sum(true_covered)/n_distinct(draw_id)) |> 
   ggplot(aes(y = param_name, x = percent_cov)) + 
   geom_point()
+```
+
+
+## Design data
+
+let's use the actual design data to fit the model
+
+### Prior predictive checks
+
+```{r}
+tar_load(prior_simulation_design)
+
+prior_simulation_design |> 
+  tidyr::unnest(simulated_data) |> 
+  filter(draw_id == 33)
+  ggplot(aes(x = num_obs, y = posterior_epred, group = tamia_id)) + 
+  geom_line() + 
+  facet_wrap(~draw_id, ncol = 5)
+```
+
+fit to many of these and look at posterior coverage
+
+```{r}
+
 ```
 

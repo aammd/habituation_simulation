@@ -60,3 +60,47 @@ make_five_tamia <- function(){
               num_obs = c(0, 5, 15, 20, 25, 30),
               FID = 1)
 }
+
+
+
+## workflow -- update of this process. should this be a package?
+make_prior_draws_df <- function(brms_prior_model,
+                                draw_vec = 25:49){
+
+  brms_prior_model |>
+    as.data.frame(draw = draw_vec) |>
+    dplyr::mutate(draw_id = draw_vec) |>
+    dplyr::rowwise() |>
+    dplyr::mutate(
+      simulated_data = list(dplyr::bind_cols(
+        # extract model data
+        brms_prior_model$data,
+        # observations simulated from the prior
+        posterior_predict = brms::posterior_predict(
+          brms_prior_model, draw_ids = draw_id) |> c(),
+        # expected predicted values from the prior
+        posterior_epred = brms::posterior_epred(
+          brms_prior_model, draw_ids = draw_id) |> c()
+      )
+      )
+    )
+}
+
+simulate_from_prior <- function(data_values, prior_spec, bf_object){
+
+  brm_prior_sample_only <- brm(bf_object,
+                               data = data_values,
+                               prior = prior_spec,
+                               sample_prior = "only",
+                               chains = 2,
+                               iter = 1000,
+                               backend = "cmdstanr",
+                               file_refit = "on_change")
+
+  twenty_five_simulations <- make_prior_draws_df(
+    brms_prior_model = brm_prior_sample_only,
+    draw_vec = 25:49)
+
+  return(twenty_five_simulations)
+}
+

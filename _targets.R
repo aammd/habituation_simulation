@@ -154,12 +154,24 @@ list(
     pattern = map(fivetamia_group),
     iteration = "list"
   ),
-
-
-
-
-
-
+  ## read in the actual design data
+  tarchetypes::tar_file_read(design,
+                             command = "design.csv",
+                             read = readr::read_csv(!!.x)),
+  tar_target(design_data,
+             command = design |>
+               dplyr::rename(
+                 tamia_id = ID,
+                 num_obs = obs_number
+               ) |>
+               dplyr::mutate(FID = 200)
+               ),
+  tar_target(
+    prior_simulation_design,
+    command = simulate_from_prior(data_values = design_data,
+                                  prior_spec = model_priors,
+                                  bf_object = model_bf)
+  ),
 
 
 
