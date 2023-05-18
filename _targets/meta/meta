@@ -1,17 +1,20 @@
 name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
-.Random.seed|object|8f56934752dac466|||||||||||||||
+.Random.seed|object|3452277044eaf037|||||||||||||||
+calculate_coverage|function|1864a35abacad929|||||||||||||||
+calculate_post_coverage|function|429db3a32275a3ef|||||||||||||||
 data|stem|98deb1dd048b569e|0f38d6bde120a779|4def4461fd55b9c0|1588979285||t19440.6591557739s|e334c4b74a456131|365|rds|local|vector|||0.006||
 demodat|stem|4b696576364eef95|06457681806cb75c|ad3f84f83cb68040|-1822205800||t19459.855824835s|28267f97bd4e2bbd|10513|rds|local|vector|||0.025||
 design|stem|79e249892ea00267|95249b2b2fbfa1a3|3d7f7399f8360311|-1197765976||t19461.6119597869s|c942435547adb320|1365|rds|local|vector|||1.853||
 design_data|stem|25cf76e8f4b6fb5e|7a27ee4f31dea7cc|be1cd2b7ce0c7fe5|173365147||t19461.6119623162s|c4720ee37e719558|1235|rds|local|vector|||0.15||
 design_file|stem|75e0b4f5fad59219|07e89165026ed045|ef46db3751d8e999|-1502124074|design.csv|t19453.4557961411s|1c949f49b44b5075|11695|file|local|vector|||14.794||
 fivetamia_group|stem|7821f1d673a3dc30|6b14fe0abc48b786|3c0dea50b86fd617|-467031923||t19459.8558227066s|27b75704290730bf|237357|rds|local|group||fivetamia_group_c79b3d2a*fivetamia_group_26f5acc9*fivetamia_group_9ce3f069*fivetamia_group_144576e4*fivetamia_group_5b33bf9d*fivetamia_group_2030ca26*fivetamia_group_1c227240*fivetamia_group_e46ef599*fivetamia_group_aaefc81a*fivetamia_group_c145e0d5*fivetamia_group_714ebe82*fivetamia_group_1031bc58*fivetamia_group_e8e170aa*fivetamia_group_85dd539d*fivetamia_group_2bf03afa*fivetamia_group_94502782*fivetamia_group_9f2561c1*fivetamia_group_899d419d*fivetamia_group_23ce7af6*fivetamia_group_e4fb8adb|0.056||
-fivetamia_prior_predictive_df|stem|ad3edd7a9dd21283|883c86137a67e4f0|c8fe010be9be16a9|-1116930192||t19459.8558186214s||173014|rds|local|vector|||0.202||Cant subset columns that dont exist. Column epred doesnt exist.
+fivetamia_prior_predictive_df|stem|ad3edd7a9dd21283|883c86137a67e4f0|866a50774c5bbc48|-1116930192||t19459.8558186214s||173014|rds|local|vector|||0.108||Cant subset columns that dont exist.31m39m Column epred doesnt exist.
 fivetamia_prior_predictive_draws|stem|867f35011212a4f2|898d9d1b1679c75e|769846b3265b5052|1153770206||t19461.6258701455s|fdc49217ed7197aa|18853|rds|local|vector|||32.239||
 hab_curve|function|28d944c559221357|||||||||||||||
 make_five_tamia|function|ff978dbb76c3c66b|||||||||||||||
-make_prior_draws_df|function|b6dd9a70b75074ad|||||||||||||||
-make_unnest_prior_dataframe|function|af4f30001d402e19|||||||||||||||
+make_many_tamia|function|25e2043261d98486|||||||||||||||
+make_prior_draws_df|function|d9c31856128f110d|||||||||||||||
+make_unnest_prior_dataframe|function|cc220af312d4e5e3|||||||||||||||
 many_models|pattern|22254f16c412ec5b|613bcf0c45d05b9e||-1399024435||||8513888|rds|local|list||many_models_f811fa02*many_models_f2c90577*many_models_09e14350*many_models_2497d782*many_models_b845f2ce*many_models_8ee1189a*many_models_9087987b*many_models_f8b9e8d5*many_models_96ef4085*many_models_03d5da49*many_models_45038b79*many_models_ecd8bf17*many_models_7c01f73b*many_models_01cae75c*many_models_d2c0c45b*many_models_9a1c7e14*many_models_be3e1c64*many_models_9fd40fca*many_models_ef35c512*many_models_b511a13b|158.767||
 many_models_01cae75c|branch|bbb9023e2f7ba3fa|613bcf0c45d05b9e|91a01d533a94f676|-1308729061||t19440.7434737516s|9e63f30d15a87e76|424107|rds|local|list|many_models||10.261||
 many_models_03d5da49|branch|36e1053ddca74ba2|613bcf0c45d05b9e|6e77999baf2af2fa|841980551||t19440.7431000831s|e8fa930c7b2e5bc4|435775|rds|local|list|many_models||6.355||
@@ -33,8 +36,11 @@ many_models_ef35c512|branch|e14e4bca956d050e|613bcf0c45d05b9e|e99deb66530364e4|1
 many_models_f2c90577|branch|710942cb46119449|613bcf0c45d05b9e|f2b2ce4504f65cd8|-1553560024||t19440.7423581311s|f3fe40ba76bc8303|427484|rds|local|list|many_models||6.815||
 many_models_f811fa02|branch|f1a06368cf0de5be|613bcf0c45d05b9e|c4f2a1396e68d512|1117285260||t19440.7422785056s|2acd5737725c0db1|421575|rds|local|list|many_models||6.922||
 many_models_f8b9e8d5|branch|522206aebe919e34|613bcf0c45d05b9e|4f812b82838095b7|-1703884206||t19440.7428234546s|acf18adacd5b962a|427160|rds|local|list|many_models||6.625||
+many_tamia|stem|340bff85f93a6efb|0c94c79d58fbcec2|db271fa976555d34|893368813||t19495.8023954289s|c2ecaf8182cbf22e|889|rds|local|vector|||5.687||
+merge_prior_and_posterior_summary|function|e5899beaadc8080d|||||||||||||||
 model|stem|9a90b1b913ca376e|ae83bc723fe2997c|326e0a6129599004|1816327236||t19417.7077280047s|1254f8a9a0ffbd1f|107|rds|local|vector|||0.009||
 model_bf|stem|a2886237f761bd03|24034d08d1a2f908|a2d2df4980ccfb99|-666199673||t19440.6589805476s|1a62f37f4e0d9d81|1416|rds|local|vector|||3.765||
+model_brm|stem|820731f0e6e7ec5a|2274866bddc1a31c|e2b4f5f26be4d667|667659093||t19495.8311201025s|8342346cf1ac5ca9|4324914|rds|local|vector|||831.005||
 model_prior_fivetamia_sim|stem|bcb68c46e9cf7412|672515a55bd9301d|895ab98dd9d00993|2020981981||t19461.6254957011s|05e0e05c3e5b50d1|45092|rds|local|vector|||81.645||
 model_prior_sim|stem|b2fa465b0f3c6d43|d15aa7a6c4863676|0dc9bf8d5bac946b|-1346928827||t19440.6596595532s|e875a568faca9d75|39759|rds|local|vector|||43.501||
 model_priors|stem|bdc2ccdc6c18fcc2|d6b3ec850c9b926c|a01114f6aa6f165b|1441560535||t19440.6591554314s|63c2d5d6ce2d0be6|307|rds|local|vector|||3.258||
@@ -44,10 +50,12 @@ one_simulation|stem|681150d0336a0460|2296c5673b6a7d25|c2aef783ba0ffbe4|-40702693
 plot|stem|4cddfd558b658b26|e1e65d4c087a3043|22597f2563c29ce1|1931196220||t19417.7119732747s|3f007d16b6b41f7a|42768|rds|local|vector|||0.012||
 plot_one_tamia|function|a53c5e6bf9fea055|||||||||||||||
 prior_predictive_df|stem|20aa4c0b6c458a2d|3112aa59bd80ddca|a7e20b520fd9b1b7|1390078294||t19440.6668690625s|dba8919e5e5c512b|12704|rds|local|vector|||0.048||
-prior_predictive_draws|stem|6886ef7e4a3f3b09|a5aaeaf890777566|2ace3bd5d419e790|-1705422524||t19461.6263159916s|fe457a9e409eae14|17114|rds|local|vector|||38.464||
+prior_predictive_draws|stem|6886ef7e4a3f3b09|a5aaeaf890777566|dedb212755b84e8c|-1705422524||t19461.6263159916s||17114|rds|local|vector|||4.668||object model_prior_sim not found
 prior_simulation_design|stem|2263318cb9537bce|84d3d4fc1cc15563|61c20e51b78916a4|2131479259||t19461.6211525084s|8930f6de004355f7|192892|rds|local|vector|||398.976||
+prior_simulation_manytamia|stem|22c2c23c278a2607|63996cbfe1b92e7b|42c74947e402117e|-1981495435||t19495.821498528s|716a2f5d4172753b|607696|rds|local|vector|||76.715||
 sampling_model|stem|e7ab46ff726b21e6|3758dab94c1463fd|af24ff9fe3792967|-1547867576||t19440.7275413236s||422455|rds|local|vector|||61.31||ignoring SIGPIPE signal
-simulate_from_prior|function|d808a692091e9df2|||||||||||||||
+set_up_one_model|function|8ff6cb13194a683d|||||||||||||||
+simulate_from_prior|function|5606c01c868e0bb8|||||||||||||||
 simulate_one_tamia|function|ff5f050d35392730|||||||||||||||
 site|stem|c07f7e22cea2faf3|f4275eb7ccb5dc29|b033da1765ec46e3|-671836230|index_files*index.html*index.qmd|t19440.7638382442s|87cf3eb1fa4db797|2922765|file|local|vector|||23.32||
 smod2|stem|683bc05425c29dad|e34a8994866c1525|76f892c0fedbe386|-1551216337||t19440.7418713058s|70a4d042f6b7be43|422516|rds|local|vector|||54.086||

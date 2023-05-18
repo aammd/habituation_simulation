@@ -27,11 +27,12 @@ options("cmdstanr_write_stan_file_dir" = "cmdstanr")
 # Install packages {{future}}, {{future.callr}}, and {{future.batchtools}} to allow use_targets() to configure tar_make_future() options.
 
 # Run the R scripts in the R/ folder with your custom functions:
-tar_source()
+tar_source(files = "R")
 # source("other_functions.R") # Source other scripts as needed. # nolint
 
-# Replace the target list below with your own:
+
 list(
+  ## starting with a simple plot of one simulation to look at the shape of the function
   tar_target(
     name = data,
     command = {
@@ -57,6 +58,7 @@ list(
              simulate_one_tamia()),
   tar_target(one_sim_plot,
              plot_one_tamia(one_simulation)),
+  ## define the model: formula, prior. Matches what we chose for the paper.
   tar_target(
     model_bf,
     bf(FID ~ inv_logit(logitM) * 1000 * (1 - inv_logit(logitp)*num_obs/(exp(logd) + num_obs)),
@@ -79,82 +81,43 @@ list(
       prior(gamma(6.25, .25), class = "shape")
     )
   ),
+  # make a simulation of many observations.
+  tar_target(many_tamia,
+             make_many_tamia(50)),
   tar_target(
-    model_prior_sim,
+    prior_simulation_manytamia,
+    command = simulate_from_prior(data_values = many_tamia,
+                                  prior_spec = model_priors,
+                                  bf_object = model_bf,
+                                  respname = "FID")
+  ),
+  ## refit to all of these: generate one test model, fit to all, then calculate coverage
+  tar_target(
+    model_brm,
     brm(model_bf,
-        data = one_simulation,
+        data = prior_simulation_manytamia$simulated_data[[1]],
         prior = model_priors,
         backend = "cmdstanr",
-        chains = 1,
-        iter = 100,
-        sample_prior = "only",
-        file_refit = "on_change")
+        sample_prior = "no",
+        chains = 4)
   ),
   tar_target(
-    prior_predictive_draws,
-    command = make_prior_draws_df(brms_prior_model = model_prior_sim)
+    df_list,
+    prior_simulation_manytamia$simulated_data
   ),
   tar_target(
-    prior_predictive_df,
-    command = make_unnest_prior_dataframe(
-      prior_predictive_draws,
-      original_data = one_simulation,
-      x_name = "num_obs")
-  ),
-  tar_target(
-    model_prior_fivetamia_sim,
-    brm(model_bf,
-        data = make_five_tamia(),
-        prior = model_priors,
-        backend = "cmdstanr",
-        chains = 1,
-        iter = 100,
-        sample_prior = "only",
-        file_refit = "on_change")
-  ),
-  tar_target(
-    fivetamia_prior_predictive_draws,
-    command = make_prior_draws_df(brms_prior_model = model_prior_fivetamia_sim)
-  ),
-  tar_target(
-    fivetamia_prior_predictive_df,
-    command = make_unnest_prior_dataframe(
-      fivetamia_prior_predictive_draws,
-      original_data = make_five_tamia(),
-      x_name = c("num_obs", "tamia_id"))
-  ),
-  tar_target(
-    fivetamia_group,
-    fivetamia_prior_predictive_df |>
-      dplyr::mutate(FID = epred) |>
-      dplyr::group_by(draw_id) |>
-      tar_group(),
-    iteration = "group"
-  ),
-  tar_target(
-    demodat,
-    fivetamia_prior_predictive_df |>
-      dplyr::mutate(FID = epred) |>
-      dplyr::filter(draw_id == 31)
-  ),
-  tar_target(
-    sampling_model,
-    command = update(model_prior_fivetamia_sim,
-                     newdata = demodat,
-                     sample_prior = "no",
-                     chains = 2, iter = 2000)
-  ),
-  tar_target(
-    smod2,
-    command = update(sampling_model, newdata = demodat)
-  ),
-  tar_target(
-    many_models,
-    update(smod2, newdata = fivetamia_group, recompile = FALSE),
-    pattern = map(fivetamia_group),
+    all_models,
+    command = update(model_brm,
+                     newdata = df_list,
+                     recompile = FALSE),
+    pattern = map(df_list),
     iteration = "list"
   ),
-  ## read in the actual design data
+  tar_target(
+    coverage_fivetamia,
+    command = calculate_coverage(prior_simulation_manytamia, all_models)
+  ),
+  ## Second phase: read in and process the actual design data
   tarchetypes::tar_file_read(design,
                              command = "design.csv",
                              read = readr::read_csv(!!.x)),
@@ -166,15 +129,13 @@ list(
                ) |>
                dplyr::mutate(FID = 200)
                ),
+  ## simulate from the prior on the observed data
   tar_target(
     prior_simulation_design,
     command = simulate_from_prior(data_values = design_data,
                                   prior_spec = model_priors,
                                   bf_object = model_bf)
   ),
-
-
-
 
 
   tar_quarto(site, path = "index.qmd")
