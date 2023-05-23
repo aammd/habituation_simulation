@@ -5,6 +5,8 @@ format: html
 author: Andrew MacDonald
 theme: minty
 bibliography: references.bib
+comments: 
+  hypothesis: true
 ---
 
 ## Introduction
