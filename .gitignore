@@ -6,3 +6,6 @@
 /.quarto/
 *.DS_Store
 cmdstanr/*
+
+model_*.stan
+model_*.exe

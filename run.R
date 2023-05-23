@@ -6,8 +6,8 @@
 # to learn about your options.
 
 targets::tar_make()
-targets::tar_make_clustermq(all_models_design, workers = 2) # nolint
+tartargets::tar_make_clustermq(all_models_design, workers = 2) # nolint
 # targets::tar_make_future(workers = 2) # nolint
 
 
-targets::tar_make_future(all_models_design, workers = 2)
+targets::tar_make_future(workers = 2)
