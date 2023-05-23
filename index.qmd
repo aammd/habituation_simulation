@@ -4,7 +4,18 @@ subtitle: "Simulations to measure the performance of a nonlinear model of habitu
 format: html
 author: Andrew MacDonald
 theme: minty
+bibliography: references.bib
 ---
+
+## Introduction
+
+It is important to validate our statistical models before using them to reach conclusions about ecological systems. In this paper we propose a nonlinear, hierarchical statistical model to capture how Flight Initiation Distance changes with increased exposure. In this Appendix we use simulations to validate this new model, following the suggestions of \@[@direnzo2023]. We use simulations to answer several distinct questions:
+
+1.  **Which priors are appropriate?** in hierarchical nonlinear models, it is impossible to select appropriate priors by inspection. Instead we use prior predictive checks: we select values from the prior and use these to create fake datasets.
+2.  **Does the model recover parameters with large datasets?** In models with many parameters, there is always the risk that parameters are difficult to estimate well. We fit a model with a large number of *Tamia* , each observed for many repeat observations, to validate that in this "idea" setting the model works well.
+3.  **Does the model recover parameters in our dataset?** Our field dataset contains unequal numbers of observations for each chipmunk, and field constraints mean that sample size in particular treatment combinations is limited. We simulate observations, while keeping every aspect of our dataset the same (treatments, number of observations per individual, etc). If a model can recover true parameters here, we can be more confident about applying it to our real observations.
+4.  **Can unbalanced categories lead to spurious effect size estimates?** Due to small sample effects, we do not have exactly equal representation in all of our treatment combinations. This is especially important in model 4, where we include sex and several aspects of individual personality in our model (see main text). Importantly, because of male chipmunk behaviour, males have fewer observations per individual than do females. We use simulations to confirm that any effects of sex or personality on our results is not caused by the structure of the data.
+
 
 ```{r setup, include = FALSE}
 #| message: false
@@ -19,12 +30,12 @@ library(targets)
 
 ## Mathematical description
 
-This document is created to validate the following model of Flight Initiation distance:
+In this Appendix we validate the following model of Flight Initiation distance:
 
 $$
 \begin{align}
 \text{FID} &\sim \text{Gamma}(\alpha, \alpha/\mu) \\
-\mu &\sim M \times 1000 \times \left(1 - \frac{p \times X}{d + X} \right) \\
+\mu &= M \times 1000 \times \left(1 - \frac{p \times X}{d + X} \right) \\
 \text{logit}(M) &= M_0 + \beta_{M, i}\\
 \text{logit}(p) &= p_0 + \beta_{p, i}\\
 \text{log}(d)   &= d_0 + \beta_{d, i}\\
@@ -41,35 +52,27 @@ d_0 &\sim N(1.5, 0.5)\\
 \end{align}
 $$
 
+This model is an adaptation of the classic Type II functional response, adapted to our study. It describes the FID of a chipmunk in three numbers:
 
-Begin by plotting the model's curve:
+* $M$, the initial flight initiation distance (proportion of 1000cm)
+* $p$, the proportion of this initial FID which is lost through habituation
+* $d$, the number of exposures to threat required for a chipmunk to move from $M$ to its final FID after habituation, defined as $pM$.
+
+This is an initial version of the model, which does not contain any effect of threat treatment or any effect of personality.  
 
 ```{r one_curve}
+#| layout-ncol: 2
+#| fig-cap: Two examples of the function (left) and the potential observations (right) described by our model. 
 tar_load(one_curve)
 one_curve
-```
 
-```{r one_tamia_figure}
 tar_load(one_sim_plot)
 one_sim_plot
 ```
 
-
 ## Prior predictive simulations
 
-define a model that matches the above in `brms`:
-
-```{r}
-tar_read(model_bf)
-```
-
-and define priors that correspond to this model as well:
-
-```{r}
-tar_read(model_priors)
-```
-
-start to plot the prior predictive distribution
+Simulating data from a prior is essential for defining priors that reflect knowledge about a system. Here we have chosen very general priors that cover a wide range of FID responses to threat treatment. This includes many which are biologically implausible, indicating that our prior is not too restrictive. However it excludes many cases that do not match our knowledge of the system: for example, FIDs which increase with exposure, or extremely rapid or slow habituation.
 
 ```{r}
 #| fig-cap: Simulations from the prior predictive distribution for our model of FID (Flight initiation distance).
@@ -98,13 +101,8 @@ un_tamia_expect |>
   labs(x = "Number of observations", y = "FID") + 
   theme_bw()
 ```
-s
 
-# Parameter recovery
-
-
-This is how the model predicts for just ONE animal. How does the model think about variation? 
-In other words, what are the effects of the hyperpriors on individual variation in $M$, $d$ and $p$?
+We can understand hyperparameters (i.e. $\sigma_M, \sigma_p, \sigma_d$ and $R$) by simulating and asking if they represent a plausible range of between-tamia variation. Again, we try to cover a range of plausible values while allowing for extreme cases.
 
 ```{r}
 tar_load(prior_simulation_manytamia)
@@ -127,13 +125,13 @@ prior_sim_df |>
 
 ```
 
-
 ## Proportion of coverage
 
-We fit the model described above to `r nrow(prior_simulation_manytamia)`. Each simulation produced a different datset with distinct parameter values. The model is fit to each, and we report a model as 'successful' if that simulation's true parameter value is above the 2.5th percentile and below the 97.5th (ie within the 95% credible interval). 
+The above simulations are each datasets which, according to our model, are plausible observations for our experiment. If the same model is fit to the data, we should recover the parameters we used to create it. We fit the model described above to `r nrow(prior_simulation_manytamia)` simulated datasets. Each simulation produced a different datset with distinct parameter values. The model is fit to each, and we report a model as 'successful' if that simulation's true parameter value is above the 2.5th percentile and below the 97.5th (ie within the 95% credible interval).
 
 ```{r}
-# layout-ncol: 2
+#| layout-ncol: 2
+#| fig-cap: Proportion of coverage for all parameters (left) and for all the population-level parameters (right). That is, the right-hand figure shows only the main effects, shape parameter, and hyperparameters; it excludes the individual values of M, p and d for each individual.
 
 tar_load(coverage_manytamia)
 coverage_manytamia |> 
@@ -148,7 +146,6 @@ coverage_manytamia |>
   coord_cartesian(xlim = c(0, 1))
 
 ```
-
 
 ## Design data
 
