@@ -7,6 +7,13 @@
 library(targets)
 library(tarchetypes)
 library(quarto)
+
+## future for parallel computing
+# library(future)
+# library(future.callr)
+# plan(callr)
+
+
 # library(tarchetypes) # Load other packages as needed. # nolint
 
 # Set target options:
@@ -19,9 +26,9 @@ tar_option_set(
 )
 
 # tar_make_clustermq() configuration (okay to leave alone):
-options(clustermq.scheduler = "multicore")
+# options(clustermq.scheduler = "multiprocess")
 
-options("cmdstanr_write_stan_file_dir" = "cmdstanr")
+options("cmdstanr_write_stan_file_dir" = here::here())
 
 # tar_make_future() configuration (okay to leave alone):
 # Install packages {{future}}, {{future.callr}}, and {{future.batchtools}} to allow use_targets() to configure tar_make_future() options.
@@ -99,7 +106,7 @@ list(
         prior = model_priors,
         backend = "cmdstanr",
         sample_prior = "no",
-        chains = 4)
+        chains = 4, cores = 4)
   ),
   tar_target(
     df_list,
@@ -109,12 +116,14 @@ list(
     all_models,
     command = update(model_brm,
                      newdata = df_list,
-                     recompile = FALSE),
+                     recompile = FALSE,
+                     backend = "cmdstanr",
+                     chains = 4, cores = 4),
     pattern = map(df_list),
     iteration = "list"
   ),
   tar_target(
-    coverage_fivetamia,
+    coverage_manytamia,
     command = calculate_coverage(prior_simulation_manytamia, all_models)
   ),
   ## Second phase: read in and process the actual design data
@@ -134,9 +143,40 @@ list(
     prior_simulation_design,
     command = simulate_from_prior(data_values = design_data,
                                   prior_spec = model_priors,
-                                  bf_object = model_bf)
+                                  bf_object = model_bf,
+                                  draws_wanted = 50:99,
+                                  respname = "FID")
   ),
-
+  ## fit models to each
+  tar_target(
+    df_list_design,
+    prior_simulation_design$simulated_data
+  ),
+  ## making model parallel as a test -- should change above if it works
+  tar_target(
+    model_brm_parallel,
+    brm(model_bf,
+        data = df_list_design[[1]],
+        prior = model_priors,
+        backend = "cmdstanr",
+        sample_prior = "no",
+        adapt_delta = 0.95,
+        chains = 4, cores = 4)
+  ),
+  tar_target(
+    all_models_design,
+    command = update(object = model_brm_parallel,
+                     newdata = df_list_design,
+                     recompile = FALSE,
+                     backend = "cmdstanr",
+                     chains = 4, cores = 4), # specify cores here?
+    pattern = map(df_list_design),
+    iteration = "list"
+  ),
+  tar_target(
+    coverage_design,
+    command = calculate_coverage(prior_simulation_design, all_models_design)
+  ),
 
   tar_quarto(site, path = "index.qmd")
 )

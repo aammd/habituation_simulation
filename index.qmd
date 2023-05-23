@@ -98,62 +98,24 @@ un_tamia_expect |>
   labs(x = "Number of observations", y = "FID") + 
   theme_bw()
 ```
-
-```{r}
-#| fig-cap: Prior predictive simulations directly from the brms model and associated prior.
-#| 
-# this is another way to do the same sort of process: 
-
-tar_load(prior_predictive_df)
-
-prior_predictive_df |> 
-  ggplot(aes(x = num_obs,
-             y = epred)) + 
-  geom_line() + 
-  geom_point(aes(y = preds)) +
-  facet_wrap(~draw_id, ncol = 5) + 
-  coord_cartesian(ylim = c(0, 1200)) + 
-  geom_hline(yintercept = 1000, lty = 2) +
-  theme_bw()
-```
-
+s
 
 # Parameter recovery
-
-```{r}
-## simulate from priors to get model parameters
-n_tamia <- 30
-# 'fixed' and hyperparameters
-true_cor <- rethinking::rlkjcorr(1, K = 3, eta = 2)
-true_sd_logd <- rexp(1, 2)
-true_sd_logitM <- rexp(1, 4)
-true_sd_logitp <- rexp(1, 2)
-true_b_logd <- rnorm(1, 1.5, sd = .5)
-true_b_logitM <- rnorm(1, .5, .5)
-true_b_logitp <- rnorm(1, -1, .2)
-true_shape <- rgamma(1, 6.25, .25)
-# tamia parameters
-VarCov_tamia <- 
-  diag(c(true_sd_logitM,
-       true_sd_logitp,
-       true_sd_logd)) %*% true_cor %*% 
-  diag(c(true_sd_logitM,
-       true_sd_logitp,
-       true_sd_logd))
-true_tamia_params <- MASS::mvrnorm(n = n_tamia, mu = c(0,0,0), Sigma = VarCov_tamia)
-
-# linear predictors for all three parts of the model
-# logit_M <- true_b_logitM + true
-```
 
 
 This is how the model predicts for just ONE animal. How does the model think about variation? 
 In other words, what are the effects of the hyperpriors on individual variation in $M$, $d$ and $p$?
 
 ```{r}
-tar_load(fivetamia_prior_predictive_df)
+tar_load(prior_simulation_manytamia)
 
-fivetamia_prior_predictive_df |> 
+prior_sim_df <- prior_simulation_manytamia |>
+  add_rownames(var = "sim_id") |> 
+  unnest(cols = simulated_data)
+
+
+  
+prior_sim_df |> 
   ggplot(aes(x = num_obs,
              y = epred, 
              group = tamia_id)) + 
@@ -165,63 +127,26 @@ fivetamia_prior_predictive_df |>
 
 ```
 
-i admit I find this whole thing a little difficult to conceptualize, since the parameters are WIDE but the data is long
+
+## Proportion of coverage
+
+We fit the model described above to `r nrow(prior_simulation_manytamia)`. Each simulation produced a different datset with distinct parameter values. The model is fit to each, and we report a model as 'successful' if that simulation's true parameter value is above the 2.5th percentile and below the 97.5th (ie within the 95% credible interval). 
 
 ```{r}
-five_tamia_data <- fivetamia_prior_predictive_df |> 
-  relocate(num_obs, .before = epred) |> 
-  select(-(epred:tamia_id)) |> 
-  pivot_longer(cols = starts_with("r"), names_to = "tamia_eff", values_to = "val") |> 
-  mutate(tamia_id = stringr::str_extract(tamia_eff, "(?<=\\[)(.*?)(?=\\,)"),
-         pname = stringr::str_extract(tamia_eff, "(?<=\\_{2})(.*?)(?=\\[)")) |> 
-  select(-tamia_eff) |> 
-  ungroup() |> 
-  distinct() |> 
-  pivot_wider(names_from = "pname", values_from = "val")
+# layout-ncol: 2
 
+tar_load(coverage_manytamia)
+coverage_manytamia |> 
+  ggplot(aes(y = variable, x = prop_covered)) + 
+  geom_point() + 
+  coord_cartesian(xlim = c(0, 1))
 
-five_tamia_data |> 
-  mutate(M = plogis(b_logitM_Intercept + logitM),
-         d = exp(b_logd_Intercept + logd),
-         p = plogis(b_logitp_Intercept + logitp),
-         mu = 1000*M*(1 - (p*num_obs)/(d + num_obs))) |> 
-  ggplot(aes(x = num_obs, y = mu, group = tamia_id)) + geom_line() + 
-  facet_wrap( ~ draw_id)
-```
+coverage_manytamia |> 
+  filter(!stringr::str_detect(variable, "r_.*")) |> 
+  ggplot(aes(y = variable, x = prop_covered)) + 
+  geom_point() + 
+  coord_cartesian(xlim = c(0, 1))
 
-## fit the model to every subset here
-
-I would like to see if I can fit the compiled model to each of these simulated datasets.
-
-```{r, error=TRUE}
-tar_load(many_models)
-
-many_posterior_summaries <- many_models |> 
-  map(brms::posterior_summary) |> 
-  map(as.data.frame) |> 
-  map(tibble::rownames_to_column, var = "param_name")
-
-tar_load(fivetamia_prior_predictive_draws)
-
-demo <- fivetamia_prior_predictive_draws |> 
-  ungroup() |> 
-  select(draw_id, b_logitM_Intercept:`r_tamia_id__logd[tamia5,Intercept]`) |> 
-  pivot_longer(cols = -draw_id, names_to = "param_name", values_to = "true_value") |> 
-  group_by(draw_id) |> 
-  nest() |> 
-  ungroup() |> 
-  mutate(post = list(many_posterior_summaries)) |> 
-  rowwise() |> 
-  mutate(compare = list(left_join(data, post)))
-
-demo |> 
-  select(draw_id, compare) |> 
-  unnest(cols = "compare") |> 
-  mutate(true_covered = true_value > Q2.5 & true_value < Q97.5) |> 
-  group_by(param_name) |> 
-  summarize(percent_cov = sum(true_covered)/n_distinct(draw_id)) |> 
-  ggplot(aes(y = param_name, x = percent_cov)) + 
-  geom_point()
 ```
 
 
@@ -236,8 +161,7 @@ tar_load(prior_simulation_design)
 
 prior_simulation_design |> 
   tidyr::unnest(simulated_data) |> 
-  filter(draw_id == 33)
-  ggplot(aes(x = num_obs, y = posterior_epred, group = tamia_id)) + 
+  ggplot(aes(x = num_obs, y = epred, group = tamia_id)) + 
   geom_line() + 
   facet_wrap(~draw_id, ncol = 5)
 ```
@@ -245,6 +169,19 @@ prior_simulation_design |>
 fit to many of these and look at posterior coverage
 
 ```{r}
+tar_load(coverage_design)
+
+coverage_design |> 
+  ggplot(aes(y = variable, x = prop_covered)) + 
+  geom_point() + 
+  coord_cartesian(xlim = c(0, 1))
+
+
+coverage_manytamia |> 
+  filter(!stringr::str_detect(variable, "r_.*")) |> 
+  ggplot(aes(y = variable, x = prop_covered)) + 
+  geom_point() + 
+  coord_cartesian(xlim = c(0, 1))
+
 
 ```
-

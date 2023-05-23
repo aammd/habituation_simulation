@@ -158,7 +158,7 @@ simulate_from_prior <- function(data_values,
 
   twenty_five_simulations <- make_prior_draws_df(
     brms_prior_model = brm_prior_sample_only,
-    draw_vec = 25:49, respname = respname)
+    draw_vec = draws_wanted, respname = respname)
 
   return(twenty_five_simulations)
 }
