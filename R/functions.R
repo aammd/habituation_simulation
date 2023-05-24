@@ -40,6 +40,15 @@ make_many_tamia <- function(ntamia = 50){
 }
 
 
+## augment the simulated_data from model 1 with the predictor variables used by model 4:
+add_indiv_vars <- function(risk_sim_list, full_df){
+  pred_df <- full_df |>
+    dplyr::select(Docility, Exploration, Number_captures, Sex)
+
+  purrr::map(risk_sim_list, ~dplyr::bind_cols(pred_df, .x))
+}
+
+
 
 ## updated functions for this process -- 18 May 2023
 
@@ -110,7 +119,51 @@ calculate_post_coverage <- function(.prior_post_combined){
     dplyr::summarise(prop_covered = mean(covered))
 }
 
+
+
+plot_posteriors_model4 <- function(modlist){
+
+  model_fit_params <- modlist |>
+    purrr::map_dfr(
+      ~ .x |> gather_rvars(b_logitp_SexM,
+                           b_logitp_scaleDocility,
+                           b_logitp_scaleExploration,
+                           b_logitM_scaleNumber_captures),
+      .id = "sim")
+
+  library(ggplot2)
+
+  model_fit_params |>
+    ggplot2::ggplot(ggplot2::aes(x= sim, dist = .value)) +
+    ggplot2::geom_hline(yintercept = 0, col = "green", linewidth = 2)+
+    tidybayes::stat_pointinterval() +
+    ggplot2::facet_wrap(~.variable,
+                        scales = "free") +
+    ggplot2::theme(axis.text = element_blank())+
+    ggplot2::labs(x = "Simulation ID", y = "Posterior distribution")
+
+}
+
+calculate_prop_model4 <- function(modlist){
+  nonzero_effects <- purrr::map_dfr(modlist,
+                                    ~ brms::as_draws(.x,
+                                                     c("b_logitp_SexM",
+                                                       "b_logitp_scaleDocility",
+                                                       "b_logitp_scaleExploration",
+                                                       "b_logitM_scaleNumber_captures")) |>
+                                      posterior::summarise_draws(),
+                                    .id = "sim") |>
+    dplyr::mutate(p_nonzero = q95<0 | q5>0)
+
+
+  nonzero_effects |>
+    dplyr::group_by(variable) |>
+    dplyr::summarise(prop_nonzero = mean(p_nonzero))
+
+}
+
 ###
+
 
 #' sets up a model for calculating
 #'

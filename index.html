@@ -128,10 +128,10 @@ div.csl-indent {
 <h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
 <p>It is important to validate our statistical models before using them to reach conclusions about ecological systems. In this paper we propose a nonlinear, hierarchical statistical model to capture how Flight Initiation Distance changes with increased exposure. In this Appendix we use simulations to validate this new model, following the suggestions of @<span class="citation" data-cites="direnzo2023">(<a href="#ref-direnzo2023" role="doc-biblioref">DiRenzo, Hanks, and Miller 2023</a>)</span>. We use simulations to answer several distinct questions:</p>
 <ol type="1">
-<li><strong>Which priors are appropriate?</strong> in hierarchical nonlinear models, it is impossible to select appropriate priors by inspection. Instead we use prior predictive checks: we select values from the prior and use these to create fake datasets.</li>
+<li><strong>Which priors are appropriate?</strong> In hierarchical nonlinear models, it is difficult to select appropriate priors by inspection. Instead we use prior predictive checks: we select values from the prior and use these to create fake datasets.</li>
 <li><strong>Does the model recover parameters with large datasets?</strong> In models with many parameters, there is always the risk that parameters are difficult to estimate well. We fit a model with a large number of <em>Tamia</em> , each observed for many repeat observations, to validate that in this “idea” setting the model works well.</li>
 <li><strong>Does the model recover parameters in our dataset?</strong> Our field dataset contains unequal numbers of observations for each chipmunk, and field constraints mean that sample size in particular treatment combinations is limited. We simulate observations, while keeping every aspect of our dataset the same (treatments, number of observations per individual, etc). If a model can recover true parameters here, we can be more confident about applying it to our real observations.</li>
-<li><strong>Can unbalanced categories lead to spurious effect size estimates?</strong> Due to small sample effects, we do not have exactly equal representation in all of our treatment combinations. This is especially important in model 4, where we include sex and several aspects of individual personality in our model (see main text). Importantly, because of male chipmunk behaviour, males have fewer observations per individual than do females. We use simulations to confirm that any effects of sex or personality on our results is not caused by the structure of the data.</li>
+<li><strong>Can unbalanced categories lead to spurious effect size estimates?</strong> Due to small sample effects, we do not have exactly equal representation in all of our treatment combinations. This is especially important in model 4, where we include sex and several aspects of individual personality in our model (see main text). Importantly, because of male chipmunk behaviour, males have fewer observations per individual than do females. We use simulations to confirm that effects of sex or personality on our results is not caused by the structure of the data.</li>
 </ol>
 </section>
 <section id="mathematical-description" class="level2">
@@ -156,38 +156,44 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 \alpha &amp;\sim \text{Gamma}(6.25, .25)
 \end{align}
 \]</span></p>
-<p>This model is an adaptation of the classic Type II functional response, adapted to our study. It describes the FID of a chipmunk in three numbers:</p>
+<p>This model is an adaptation of the classic Type II functional response, adapted to our study. It describes the FID of a chipmunk in three values:</p>
 <ul>
 <li><span class="math inline">\(M\)</span>, the initial flight initiation distance (proportion of 1000cm)</li>
 <li><span class="math inline">\(p\)</span>, the proportion of this initial FID which is lost through habituation</li>
-<li><span class="math inline">\(d\)</span>, the number of exposures to threat required for a chipmunk to move from <span class="math inline">\(M\)</span> to its final FID after habituation, defined as <span class="math inline">\(pM\)</span>.</li>
+<li><span class="math inline">\(d\)</span>, the number of exposures to threat required for a chipmunk to move from <span class="math inline">\(M\)</span> to its final FID after habituation.</li>
 </ul>
 <p>This is an initial version of the model, which does not contain any effect of threat treatment or any effect of personality.</p>
 <div>
+<details>
+<summary>Code</summary>
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(one_curve)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>one_curve</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(one_sim_plot)</span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>one_sim_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell quarto-layout-panel">
+</details>
+<div id="fig-curves" class="cell quarto-layout-panel">
+<figure class="figure">
 <div class="quarto-layout-row quarto-layout-valign-top">
-<div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
-<div class="quarto-figure quarto-figure-center">
+<div class="cell-output-display quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 50.0%;justify-content: center;">
+<div id="fig-curves-1" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure">
-<p><img src="index_files/figure-html/one_curve-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Two examples of the function (left) and the potential observations (right) described by our model.</figcaption>
+<p><img src="index_files/figure-html/fig-curves-1.png" class="img-fluid figure-img" data-ref-parent="fig-curves" width="672"></p>
+<figcaption class="figure-caption">(a) The functional shape of our FID model. Dashed lines indicate the parameters that describe the curve: <span class="math inline">\(M\)</span> (orange line) <span class="math inline">\(d\)</span> (blue line) and <span class="math inline">\(M(1-p)\)</span> (red line)</figcaption>
 </figure>
 </div>
 </div>
-<div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
-<div class="quarto-figure quarto-figure-center">
+<div class="cell-output-display quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 50.0%;justify-content: center;">
+<div id="fig-curves-2" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure">
-<p><img src="index_files/figure-html/one_curve-2.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Two examples of the function (left) and the potential observations (right) described by our model.</figcaption>
+<p><img src="index_files/figure-html/fig-curves-2.png" class="img-fluid figure-img" data-ref-parent="fig-curves" width="672"></p>
+<figcaption class="figure-caption">(b) We simulate observations from a Gamma distribution centered on the predicted line.</figcaption>
 </figure>
 </div>
 </div>
 </div>
+<p></p><figcaption class="figure-caption">Figure&nbsp;1: Two examples of the function (left) and the potential observations (right) described by our model</figcaption><p></p>
+</figure>
 </div>
 </div>
 </section>
@@ -195,6 +201,8 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 <h2 class="anchored" data-anchor-id="prior-predictive-simulations">Prior predictive simulations</h2>
 <p>Simulating data from a prior is essential for defining priors that reflect knowledge about a system. Here we have chosen very general priors that cover a wide range of FID responses to threat treatment. This includes many which are biologically implausible, indicating that our prior is not too restrictive. However it excludes many cases that do not match our knowledge of the system: for example, FIDs which increase with exposure, or extremely rapid or slow habituation.</p>
 <div class="cell">
+<details>
+<summary>Code</summary>
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(model_prior_sim)</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>un_tamia <span class="ot">&lt;-</span> tibble<span class="sc">::</span><span class="fu">tibble</span>(<span class="at">tamia_id =</span> <span class="st">"un_tamia"</span>,</span>
@@ -219,17 +227,20 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 <span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Number of observations"</span>, <span class="at">y =</span> <span class="st">"FID"</span>) <span class="sc">+</span> </span>
 <span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span>
 <span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Joining with `by = join_by(tamia_id, num_obs, .row, .chain, .iteration, .draw)`</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
-<div class="quarto-figure quarto-figure-center">
+<div id="fig-prior-pred" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure">
-<p><img src="index_files/figure-html/unnamed-chunk-1-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Simulations from the prior predictive distribution for our model of FID (Flight initiation distance).</figcaption>
+<p><img src="index_files/figure-html/fig-prior-pred-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption class="figure-caption">Figure&nbsp;2: Simulations from the prior predictive distribution for our model of FID (Flight initiation distance). Each panel is a simulated chipmunk.</figcaption>
 </figure>
 </div>
 </div>
 </div>
 <p>We can understand hyperparameters (i.e.&nbsp;<span class="math inline">\(\sigma_M, \sigma_p, \sigma_d\)</span> and <span class="math inline">\(R\)</span>) by simulating and asking if they represent a plausible range of between-tamia variation. Again, we try to cover a range of plausible values while allowing for extreme cases.</p>
 <div class="cell">
+<details>
+<summary>Code</summary>
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(prior_simulation_manytamia)</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>prior_sim_df <span class="ot">&lt;-</span> prior_simulation_manytamia <span class="sc">|&gt;</span></span>
@@ -249,8 +260,14 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 <span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="co"># coord_cartesian(ylim = c(0, 1000)) + </span></span>
 <span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># geom_hline(yintercept = 1000, lty = 2) +</span></span>
 <span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid" width="672"></p>
+<div id="fig-prior-hyper" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="index_files/figure-html/fig-prior-hyper-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption class="figure-caption">Figure&nbsp;3: Simulations from the prior predictive distribution for our model of FID (Flight initiation distance), showing the effect of hyperparameters on between-individual differences</figcaption>
+</figure>
+</div>
 </div>
 </div>
 </section>
@@ -258,6 +275,8 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 <h2 class="anchored" data-anchor-id="proportion-of-coverage">Proportion of coverage</h2>
 <p>The above simulations are each datasets which, according to our model, are plausible observations for our experiment. If the same model is fit to the data, we should recover the parameters we used to create it. We fit the model described above to 25 simulated datasets. Each simulation produced a different datset with distinct parameter values. The model is fit to each, and we report a model as ‘successful’ if that simulation’s true parameter value is above the 2.5th percentile and below the 97.5th (ie within the 95% credible interval).</p>
 <div>
+<details>
+<summary>Code</summary>
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(coverage_manytamia)</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>coverage_manytamia <span class="sc">|&gt;</span> </span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">y =</span> variable, <span class="at">x =</span> prop_covered)) <span class="sc">+</span> </span>
@@ -269,6 +288,7 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 <span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">y =</span> variable, <span class="at">x =</span> prop_covered)) <span class="sc">+</span> </span>
 <span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
 <span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
@@ -297,6 +317,8 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 <section id="prior-predictive-checks" class="level3">
 <h3 class="anchored" data-anchor-id="prior-predictive-checks">Prior predictive checks</h3>
 <div class="cell">
+<details>
+<summary>Code</summary>
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(prior_simulation_design)</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>prior_simulation_design <span class="sc">|&gt;</span> </span>
@@ -304,21 +326,27 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 <span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> epred, <span class="at">group =</span> tamia_id)) <span class="sc">+</span> </span>
 <span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span> </span>
 <span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>draw_id, <span class="at">ncol =</span> <span class="dv">5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
 <p><img src="index_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 <p>fit to many of these and look at posterior coverage</p>
 <div class="cell">
+<details>
+<summary>Code</summary>
 <div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(coverage_design)</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>coverage_design <span class="sc">|&gt;</span> </span>
 <span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">y =</span> variable, <span class="at">x =</span> prop_covered)) <span class="sc">+</span> </span>
 <span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
 <span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
 <p><img src="index_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid" width="672"></p>
 </div>
+<details>
+<summary>Code</summary>
 <div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>coverage_manytamia <span class="sc">|&gt;</span> </span>
@@ -326,12 +354,112 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 <span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">y =</span> variable, <span class="at">x =</span> prop_covered)) <span class="sc">+</span> </span>
 <span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
 <span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
 <p><img src="index_files/figure-html/unnamed-chunk-5-2.png" class="img-fluid" width="672"></p>
 </div>
 </div>
-
+<p>model 1, same procedure</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(coverage_model_1)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>coverage_model_1 <span class="sc">|&gt;</span> </span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">y =</span> variable, <span class="at">x =</span> prop_covered)) <span class="sc">+</span> </span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid" width="672"></p>
+</div>
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>coverage_model_1 <span class="sc">|&gt;</span> </span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span>stringr<span class="sc">::</span><span class="fu">str_detect</span>(variable, <span class="st">"r_.*"</span>)) <span class="sc">|&gt;</span> </span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">y =</span> variable, <span class="at">x =</span> prop_covered)) <span class="sc">+</span> </span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/unnamed-chunk-6-2.png" class="img-fluid" width="672"></p>
+</div>
+</div>
 </section>
+</section>
+<section id="model-4" class="level2">
+<h2 class="anchored" data-anchor-id="model-4">Model 4</h2>
+<p>In model 4, we attempt to explain individual differences in the parameters <span class="math inline">\(M\)</span>, <span class="math inline">\(p\)</span> and <span class="math inline">\(d\)</span> by adding individual-level predictor variables to our model. These are sex, number of previous captures, Docility, and Explorativeness. However, such effects might be difficult to detect in our experiment, as this represents more parameters to estimate. This is especially important for sex: male chipmunks are less likely to remain in the study area, and therefore are less likely to be observed frequently. This results in less opportunity to observe their habituation. It might also result in a biased estimate of differences between the sexes.</p>
+<p>To investigate the possibility of spurious effects of individual-level predictors, we simulated data using Model 1 above. This model does not have any effects of the four predictors above. We then fit a model which contains all the predictor variables.</p>
+<p><span class="math display">\[
+\begin{align}
+\text{FID} &amp;\sim \text{Gamma}(\alpha, \alpha/\mu) \\
+\mu &amp;= M \times 1000 \times \left(1 - \frac{p \times X}{d + X} \right) \\
+\text{logit}(M) &amp;= M_0 + \beta_{M, i} + \beta_{\text{Risk}[i]} + \beta_c \text{Captures}\\
+\text{logit}(p) &amp;= p_0 + \beta_{p, i} + \beta_{\text{Risk}[i]} + \beta_{\text{sex}[i]} + \beta_d \text{Docility} + \beta_x \text{Explorative}\\
+\text{log}(d)   &amp;= d_0 + \beta_{d, i} + \beta_{\text{Risk}[i]}\\
+\begin{bmatrix}  \beta_{M} \  \beta_{p} \  \beta_{d} \end{bmatrix} &amp;\sim N\left(\begin{bmatrix} 0 \ 0 \ 0 \end{bmatrix}, \Sigma\right) \\
+\Sigma &amp;= \text{diag}(\sigma_M, \sigma_p, \sigma_d) \times \text{R} \times \text{diag}(\sigma_M, \sigma_p, \sigma_d) \\
+\sigma_M &amp;\sim \text{Exponential}(4) \\
+\sigma_p &amp;\sim \text{Exponential}(2) \\
+\sigma_d &amp;\sim \text{Exponential}(2) \\
+\text{R} &amp;\sim \text{LKJ}(2) \\
+M_0 &amp;\sim N(0.5, 0.5)\\
+p_0 &amp;\sim N(-1, 0.2)\\
+d_0 &amp;\sim N(1.5, 0.5)\\
+\alpha &amp;\sim \text{Gamma}(6.25, .25)
+\end{align}
+\]</span></p>
+<p>The simulation produces <em>Tamia</em> which vary individually, and which have the same number of observations per individual as the real dataset. We then analyzed this model with Model 4. Since there are no effects of individual-level predictors present in the model (other than Risk), We should find the posterior distributions to be close to 0 for <span class="math inline">\(\beta_c\)</span>, <span class="math inline">\(\beta_x\)</span>, <span class="math inline">\(\beta_d\)</span> and <span class="math inline">\(\beta_{sex}\)</span></p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>targets<span class="sc">::</span><span class="fu">tar_load</span>(model4_posterior_plot)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>model4_posterior_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(nonzero_model4_table)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(nonzero_model4_table)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<table class="table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">variable</th>
+<th style="text-align: right;">prop_nonzero</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">b_logitM_scaleNumber_captures</td>
+<td style="text-align: right;">0.10</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">b_logitp_SexM</td>
+<td style="text-align: right;">0.38</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">b_logitp_scaleDocility</td>
+<td style="text-align: right;">0.24</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">b_logitp_scaleExploration</td>
+<td style="text-align: right;">0.12</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>In general, the model finds posteriors that are close to 0 for all coefficients. However, there is a surprising bias towards supurious sex-differences in the value of <span class="math inline">\(p\)</span>. This is possibly due to the lower sample size of male chipmunks</p>
+
 </section>
 
 <div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">

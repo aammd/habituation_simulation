@@ -7,16 +7,17 @@ theme: minty
 bibliography: references.bib
 comments: 
   hypothesis: true
+code-fold: true
 ---
 
 ## Introduction
 
 It is important to validate our statistical models before using them to reach conclusions about ecological systems. In this paper we propose a nonlinear, hierarchical statistical model to capture how Flight Initiation Distance changes with increased exposure. In this Appendix we use simulations to validate this new model, following the suggestions of \@[@direnzo2023]. We use simulations to answer several distinct questions:
 
-1.  **Which priors are appropriate?** in hierarchical nonlinear models, it is impossible to select appropriate priors by inspection. Instead we use prior predictive checks: we select values from the prior and use these to create fake datasets.
+1.  **Which priors are appropriate?** In hierarchical nonlinear models, it is difficult to select appropriate priors by inspection. Instead we use prior predictive checks: we select values from the prior and use these to create fake datasets.
 2.  **Does the model recover parameters with large datasets?** In models with many parameters, there is always the risk that parameters are difficult to estimate well. We fit a model with a large number of *Tamia* , each observed for many repeat observations, to validate that in this "idea" setting the model works well.
 3.  **Does the model recover parameters in our dataset?** Our field dataset contains unequal numbers of observations for each chipmunk, and field constraints mean that sample size in particular treatment combinations is limited. We simulate observations, while keeping every aspect of our dataset the same (treatments, number of observations per individual, etc). If a model can recover true parameters here, we can be more confident about applying it to our real observations.
-4.  **Can unbalanced categories lead to spurious effect size estimates?** Due to small sample effects, we do not have exactly equal representation in all of our treatment combinations. This is especially important in model 4, where we include sex and several aspects of individual personality in our model (see main text). Importantly, because of male chipmunk behaviour, males have fewer observations per individual than do females. We use simulations to confirm that any effects of sex or personality on our results is not caused by the structure of the data.
+4.  **Can unbalanced categories lead to spurious effect size estimates?** Due to small sample effects, we do not have exactly equal representation in all of our treatment combinations. This is especially important in model 4, where we include sex and several aspects of individual personality in our model (see main text). Importantly, because of male chipmunk behaviour, males have fewer observations per individual than do females. We use simulations to confirm that effects of sex or personality on our results is not caused by the structure of the data.
 
 
 ```{r setup, include = FALSE}
@@ -54,17 +55,21 @@ d_0 &\sim N(1.5, 0.5)\\
 \end{align}
 $$
 
-This model is an adaptation of the classic Type II functional response, adapted to our study. It describes the FID of a chipmunk in three numbers:
+This model is an adaptation of the classic Type II functional response, adapted to our study. It describes the FID of a chipmunk in three values:
 
 * $M$, the initial flight initiation distance (proportion of 1000cm)
 * $p$, the proportion of this initial FID which is lost through habituation
-* $d$, the number of exposures to threat required for a chipmunk to move from $M$ to its final FID after habituation, defined as $pM$.
+* $d$, the number of exposures to threat required for a chipmunk to move from $M$ to its final FID after habituation.
 
 This is an initial version of the model, which does not contain any effect of threat treatment or any effect of personality.  
 
 ```{r one_curve}
+#| label: fig-curves
+#| fig-cap: "Two examples of the function (left) and the potential observations (right) described by our model"
+#| fig-subcap: 
+#|   - "The functional shape of our FID model. Dashed lines indicate the parameters that describe the curve: $M$ (orange line) $d$ (blue line) and $M(1-p)$ (red line)"
+#|   - "We simulate observations from a Gamma distribution centered on the predicted line."
 #| layout-ncol: 2
-#| fig-cap: Two examples of the function (left) and the potential observations (right) described by our model. 
 tar_load(one_curve)
 one_curve
 
@@ -77,7 +82,8 @@ one_sim_plot
 Simulating data from a prior is essential for defining priors that reflect knowledge about a system. Here we have chosen very general priors that cover a wide range of FID responses to threat treatment. This includes many which are biologically implausible, indicating that our prior is not too restrictive. However it excludes many cases that do not match our knowledge of the system: for example, FIDs which increase with exposure, or extremely rapid or slow habituation.
 
 ```{r}
-#| fig-cap: Simulations from the prior predictive distribution for our model of FID (Flight initiation distance).
+#| label: fig-prior-pred
+#| fig-cap: Simulations from the prior predictive distribution for our model of FID (Flight initiation distance). Each panel is a simulated chipmunk.
 
 tar_load(model_prior_sim)
 
@@ -107,6 +113,8 @@ un_tamia_expect |>
 We can understand hyperparameters (i.e. $\sigma_M, \sigma_p, \sigma_d$ and $R$) by simulating and asking if they represent a plausible range of between-tamia variation. Again, we try to cover a range of plausible values while allowing for extreme cases.
 
 ```{r}
+#| label: fig-prior-hyper
+#| fig-cap: Simulations from the prior predictive distribution for our model of FID (Flight initiation distance), showing the effect of hyperparameters on between-individual differences
 tar_load(prior_simulation_manytamia)
 
 prior_sim_df <- prior_simulation_manytamia |>
@@ -184,3 +192,67 @@ coverage_manytamia |>
 
 
 ```
+
+
+model 1, same procedure
+
+```{r}
+tar_load(coverage_model_1)
+
+coverage_model_1 |> 
+  ggplot(aes(y = variable, x = prop_covered)) + 
+  geom_point() + 
+  coord_cartesian(xlim = c(0, 1))
+
+
+coverage_model_1 |> 
+  filter(!stringr::str_detect(variable, "r_.*")) |> 
+  ggplot(aes(y = variable, x = prop_covered)) + 
+  geom_point() + 
+  coord_cartesian(xlim = c(0, 1))
+
+
+```
+
+
+## Model 4
+
+In model 4, we attempt to explain individual differences in the parameters $M$, $p$ and $d$ by adding individual-level predictor variables to our model. These are sex, number of previous captures, Docility, and Explorativeness. However, such effects might be difficult to detect in our experiment, as this represents more parameters to estimate. This is especially important for sex: male chipmunks are less likely to remain in the study area, and therefore are less likely to be observed frequently. This results in less opportunity to observe their habituation.  It might also result in a biased estimate of differences between the sexes.
+
+To investigate the possibility of spurious effects of individual-level predictors, we simulated data using Model 1 above. This model does not have any effects of the four predictors above. We then fit a model which contains all the predictor variables. 
+
+$$
+\begin{align}
+\text{FID} &\sim \text{Gamma}(\alpha, \alpha/\mu) \\
+\mu &= M \times 1000 \times \left(1 - \frac{p \times X}{d + X} \right) \\
+\text{logit}(M) &= M_0 + \beta_{M, i} + \beta_{\text{Risk}[i]} + \beta_c \text{Captures}\\
+\text{logit}(p) &= p_0 + \beta_{p, i} + \beta_{\text{Risk}[i]} + \beta_{\text{sex}[i]} + \beta_d \text{Docility} + \beta_x \text{Explorative}\\
+\text{log}(d)   &= d_0 + \beta_{d, i} + \beta_{\text{Risk}[i]}\\
+\begin{bmatrix}  \beta_{M} \  \beta_{p} \  \beta_{d} \end{bmatrix} &\sim N\left(\begin{bmatrix} 0 \ 0 \ 0 \end{bmatrix}, \Sigma\right) \\
+\Sigma &= \text{diag}(\sigma_M, \sigma_p, \sigma_d) \times \text{R} \times \text{diag}(\sigma_M, \sigma_p, \sigma_d) \\
+\sigma_M &\sim \text{Exponential}(4) \\
+\sigma_p &\sim \text{Exponential}(2) \\
+\sigma_d &\sim \text{Exponential}(2) \\
+\text{R} &\sim \text{LKJ}(2) \\
+M_0 &\sim N(0.5, 0.5)\\
+p_0 &\sim N(-1, 0.2)\\
+d_0 &\sim N(1.5, 0.5)\\
+\alpha &\sim \text{Gamma}(6.25, .25)
+\end{align}
+$$
+
+The simulation produces _Tamia_ which vary individually, and which have the same number of observations per individual as the real dataset. We then analyzed this model with Model 4. Since there are no effects of individual-level predictors present in the model (other than Risk), We should find the posterior distributions to be close to 0 for $\beta_c$, $\beta_x$, $\beta_d$ and $\beta_{sex}$
+
+```{r}
+targets::tar_load(model4_posterior_plot)
+model4_posterior_plot
+
+```
+
+
+```{r}
+tar_load(nonzero_model4_table)
+knitr::kable(nonzero_model4_table)
+```
+
+In general, the model finds posteriors that are close to 0 for all coefficients. However, there is a surprising bias towards supurious sex-differences in the value of $p$. This is possibly due to the lower sample size of male chipmunks

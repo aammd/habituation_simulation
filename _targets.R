@@ -46,7 +46,7 @@ list(
       tibble::tibble(num_obs = 0:30,
                      mu = hab_curve(num_obs,
                                     M = 200,
-                                    p = .3,
+                                    p = .6,
                                     d = 2))
     }
   ),
@@ -58,7 +58,10 @@ list(
         geom_line() +
         coord_cartesian(xlim = c(0, 30), ylim = c(0, 300)) +
         theme_bw() +
-        labs(x = "N observations", y = "FID")
+        labs(x = "N observations", y = "FID") +
+        geom_vline(xintercept = 2,             linewidth = 2, lty = 2, col = "blue") +
+        geom_hline(yintercept = 200,           linewidth = 2, lty = 2, col = "orange") +
+        geom_hline(yintercept = 200* (1 - .6), linewidth = 2, lty = 2, col = "red")
     }
   ),
   tar_target(one_simulation,
@@ -69,11 +72,11 @@ list(
   tar_target(
     model_bf,
     bf(FID ~ inv_logit(logitM) * 1000 * (1 - inv_logit(logitp)*num_obs/(exp(logd) + num_obs)),
-                  logitM ~ 1 + (1 |t| tamia_id),
-                  logitp ~ 1 + (1 |t| tamia_id),
-                  logd ~ 1 + (1 |t| tamia_id),
-                  nl = TRUE,
-                  family = Gamma(link = "identity"))
+       logitM ~ 1 + (1 |t| tamia_id),
+       logitp ~ 1 + (1 |t| tamia_id),
+       logd ~ 1 + (1 |t| tamia_id),
+       nl = TRUE,
+       family = Gamma(link = "identity"))
   ),
   tar_target(
     model_priors,
@@ -137,7 +140,7 @@ list(
                  num_obs = obs_number
                ) |>
                dplyr::mutate(FID = 200)
-               ),
+  ),
   ## simulate from the prior on the observed data
   tar_target(
     prior_simulation_design,
@@ -177,6 +180,108 @@ list(
     coverage_design,
     command = calculate_coverage(prior_simulation_design, all_models_design)
   ),
+
+  ## validate a model with treatment effects ------------------
+
+  # make risk a factor
+  tar_target(
+    design_data_risk,
+    command = design_data |>
+      dplyr::mutate(Risk = as.factor(Risk))
+  ),
+  # define model 1
+  tar_target(
+    model_1_bf,
+    bf(FID ~ inv_logit(logitM) * 1000 * (1 - inv_logit(logitp)*num_obs/(exp(logd) + num_obs)),
+       logitM ~ 1 + Risk + (1 |t| tamia_id),
+       logitp ~ 1 + Risk + (1 |t| tamia_id),
+       logd ~   1 + Risk + (1 |t| tamia_id),
+       nl = TRUE,
+       family = Gamma(link = "identity"))
+  ),
+  tar_target(
+    prior_simulation_design_risk,
+    command = simulate_from_prior(data_values = design_data_risk,
+                                  prior_spec = model_priors,
+                                  bf_object = model_1_bf,
+                                  draws_wanted = 50:99,
+                                  respname = "FID")
+  ),
+  ## same 3 steps as above: create a model, update, calculate coverage
+  tar_target(
+    df_list_design_risk,
+    prior_simulation_design_risk$simulated_data
+  ),
+  tar_target(
+    model_1_brm_parallel,
+    brm(model_1_bf,
+        data = df_list_design_risk[[1]],
+        prior = model_priors,
+        backend = "cmdstanr",
+        sample_prior = "no",
+        adapt_delta = 0.95,
+        chains = 4, cores = 4)
+  ),
+  tar_target(
+    all_model_1_fits,
+    command = update(object = model_1_brm_parallel,
+                     newdata = df_list_design_risk,
+                     recompile = FALSE,
+                     backend = "cmdstanr",
+                     chains = 4, cores = 4), # specify cores here?
+    pattern = map(df_list_design_risk),
+    iteration = "list"
+  ),
+  tar_target(
+    coverage_model_1,
+    command = calculate_coverage(prior_simulation_design_risk, all_model_1_fits)
+  ),
+  ## define model 4, set it up, and fit it to all these simulated datasets as well.
+  # define model 1
+  tar_target(
+    model_4_bf,
+    bf(FID ~ inv_logit(logitM) * 1000 * (1 - inv_logit(logitp)*num_obs/(exp(logd) + num_obs)),
+       logitM ~ 1 + Risk + scale(Number_captures) + (1 |t| tamia_id),
+       logitp ~ 1 + Risk + Sex + scale(Docility) + scale(Exploration) + (1 |t| tamia_id),
+       logd ~   1 + Risk + (1 |t| tamia_id),
+       nl = TRUE,
+       family = Gamma(link = "identity"))
+  ),
+  ## add the predictor variables to the whole model
+  tar_target(
+    df_list_personality,
+    add_indiv_vars(df_list_design_risk, design_data_risk)
+  ),
+  tar_target(
+    model_4_brm_parallel,
+    brm(model_4_bf,
+        data = df_list_personality[[1]],
+        prior = model_priors,
+        backend = "cmdstanr",
+        sample_prior = "no",
+        adapt_delta = 0.95,
+        chains = 4, cores = 4)
+  ),
+  tar_target(
+    all_model_4_fits,
+    command = update(object = model_4_brm_parallel,
+                     newdata = df_list_personality,
+                     recompile = FALSE,
+                     backend = "cmdstanr",
+                     chains = 4, cores = 4), # specify cores here?
+    pattern = map(df_list_personality),
+    iteration = "list"
+  ),
+  tar_target(
+    model4_posterior_plot,
+    command = plot_posteriors_model4(modlist = all_model_4_fits)
+  ),
+  tar_target(
+    nonzero_model4_table,
+    command = calculate_prop_model4(all_model_4_fits)
+  ),
+
+
 
   tar_quarto(site, path = "index.qmd")
 )
