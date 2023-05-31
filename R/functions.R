@@ -139,7 +139,7 @@ plot_posteriors_model4 <- function(modlist){
     tidybayes::stat_pointinterval() +
     ggplot2::facet_wrap(~.variable,
                         scales = "free") +
-    ggplot2::theme(axis.text = element_blank())+
+    ggplot2::theme(axis.text.x = element_blank())+
     ggplot2::labs(x = "Simulation ID", y = "Posterior distribution")
 
 }
