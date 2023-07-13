@@ -29,7 +29,7 @@ plot_one_tamia <- function(df){
     ggplot(aes(x = num_obs, y = FID)) +
     geom_point() +
     geom_line(aes(y = mu)) +
-    coord_cartesian(ylim = c(0, 210), xlim = c(0, 35)) +
+    coord_cartesian(ylim = c(0, 1000), xlim = c(0, 35)) +
     theme_bw()
 }
 
