@@ -29,7 +29,7 @@ plot_one_tamia <- function(df){
     ggplot(aes(x = num_obs, y = FID)) +
     geom_point() +
     geom_line(aes(y = mu)) +
-    coord_cartesian(ylim = c(0, 210), xlim = c(0, 35)) +
+    coord_cartesian(ylim = c(0, 1000), xlim = c(0, 35)) +
     theme_bw()
 }
 
@@ -139,7 +139,7 @@ plot_posteriors_model4 <- function(modlist){
     tidybayes::stat_pointinterval() +
     ggplot2::facet_wrap(~.variable,
                         scales = "free") +
-    ggplot2::theme(axis.text = element_blank())+
+    ggplot2::theme(axis.text.x = element_blank())+
     ggplot2::labs(x = "Simulation ID", y = "Posterior distribution")
 
 }

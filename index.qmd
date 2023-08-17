@@ -12,7 +12,7 @@ code-fold: true
 
 ## Introduction
 
-It is important to validate our statistical models before using them to reach conclusions about ecological systems. In this paper we propose a nonlinear, hierarchical statistical model to capture how Flight Initiation Distance changes with increased exposure. In this Appendix we use simulations to validate this new model, following the suggestions of \@[@direnzo2023]. We use simulations to answer several distinct questions:
+It is important to validate our statistical models before using them to reach conclusions about ecological systems. In this paper we propose a nonlinear, hierarchical statistical model to capture how Flight Initiation Distance changes with increased exposure. In this Appendix we use simulations to validate this new model, following a produced suggested by DiRenzo, Hanks and Miller [-@direnzo2023]. We use simulations to answer several distinct questions:
 
 1.  **Which priors are appropriate?** In hierarchical nonlinear models, it is difficult to select appropriate priors by inspection. Instead we use prior predictive checks: we select values from the prior and use these to create fake datasets.
 2.  **Does the model recover parameters with large datasets?** In models with many parameters, there is always the risk that parameters are difficult to estimate well. We fit a model with a large number of *Tamia* , each observed for many repeat observations, to validate that in this "idea" setting the model works well.
@@ -241,7 +241,7 @@ d_0 &\sim N(1.5, 0.5)\\
 \end{align}
 $$
 
-The simulation produces _Tamia_ which vary individually, and which have the same number of observations per individual as the real dataset. We then analyzed this model with Model 4. Since there are no effects of individual-level predictors present in the model (other than Risk), We should find the posterior distributions to be close to 0 for $\beta_c$, $\beta_x$, $\beta_d$ and $\beta_{sex}$
+The simulation produces chipmunk which vary individually, and which have the same number of observations per individual as the real dataset. We then analyzed this model with Model 4. Since there are no effects of individual-level predictors present in the model (other than Risk), We should find the posterior distributions to be close to 0 for $\beta_c$, $\beta_x$, $\beta_d$ and $\beta_{sex}$
 
 ```{r}
 targets::tar_load(model4_posterior_plot)
