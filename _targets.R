@@ -280,8 +280,45 @@ list(
     nonzero_model4_table,
     command = calculate_prop_model4(all_model_4_fits)
   ),
-
-
-
+  tar_target(
+    form_fit_log,
+    command = bf(log(FID) ~ 1 + num_obs + (1 + num_obs | tamia_id),
+                 family = gaussian())
+  ),
+  tar_target(
+    priors_log,
+    command = c(prior(lkj(2),              class = "cor"),
+                prior(exponential(1), class = "sd", coef = "Intercept", group = "tamia_id"),
+                prior(exponential(1), class = "sd", coef = "num_obs",   group = "tamia_id"),
+                prior(normal(0, 100),      class = "b",  coef = "num_obs")#,
+                # prior(normal(0, 0.2),      class = "b",  coef = "num_obs:threatHigh"),
+                # prior(normal(0, 0.2),      class = "b",  coef = "num_obs:threatMedium"),
+                # prior(normal(0, 0.2),      class = "b",  coef = "num_obs:capt"),
+                # prior(normal(0, 0.2),      class = "b",  coef = "walkerRHB"),
+                # prior(normal(.5, 0.5),     class = "b",  coef = "threatHigh"),
+                # prior(normal(0, 0.2),      class = "b",  coef = "threatMedium")
+                )
+  ),
+  tar_target(
+    fit_log,
+    command = brm(form_fit_log,
+                  data        = prior_simulation_manytamia$simulated_data[[7]],
+                  prior       = priors_log,
+                  seed        = 1234,
+                  adapt_delta = 0.95,
+                  core        = 3,
+                  iter        = 5000,
+                  backend     = "cmdstanr")
+  ),
+  tar_target(
+    fit_log_fits,
+    command = update(object = fit_log,
+                     newdata = df_list_design_risk,
+                     recompile = FALSE,
+                     backend = "cmdstanr",
+                     chains = 4, cores = 4), # specify cores here?
+    pattern = map(df_list_design_risk),
+    iteration = "list"
+  ),
   tar_quarto(site, path = "index.qmd")
 )
