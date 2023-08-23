@@ -283,20 +283,15 @@ list(
   tar_target(
     form_fit_log,
     command = bf(log(FID) ~ 1 + num_obs + (1 + num_obs | tamia_id),
-                 family = gaussian())
+                 family = gaussian(), center = FALSE)
   ),
   tar_target(
     priors_log,
     command = c(prior(lkj(2),              class = "cor"),
+                prior(normal(6, .5), class = "b", coef = "Intercept"),
                 prior(exponential(1), class = "sd", coef = "Intercept", group = "tamia_id"),
                 prior(exponential(1), class = "sd", coef = "num_obs",   group = "tamia_id"),
-                prior(normal(0, 100),      class = "b",  coef = "num_obs")#,
-                # prior(normal(0, 0.2),      class = "b",  coef = "num_obs:threatHigh"),
-                # prior(normal(0, 0.2),      class = "b",  coef = "num_obs:threatMedium"),
-                # prior(normal(0, 0.2),      class = "b",  coef = "num_obs:capt"),
-                # prior(normal(0, 0.2),      class = "b",  coef = "walkerRHB"),
-                # prior(normal(.5, 0.5),     class = "b",  coef = "threatHigh"),
-                # prior(normal(0, 0.2),      class = "b",  coef = "threatMedium")
+                prior(std_normal(),      class = "b",  coef = "num_obs")
                 )
   ),
   tar_target(
@@ -320,5 +315,120 @@ list(
     pattern = map(df_list_design_risk),
     iteration = "list"
   ),
+
+  ## fit without the effect on the slope
+
+  tar_target(
+    form_fit_log_noslope,
+    command = bf(log(FID) ~ 1 + num_obs + (1 | tamia_id),
+                 family = gaussian())
+  ),
+  tar_target(
+    priors_log_noslope,
+    command = c(prior(lkj(2),              class = "cor"),
+                prior(normal(6, .5), class = "b", coef = "Intercept"),
+                prior(exponential(1), class = "sd", coef = "Intercept", group = "tamia_id"),
+                prior(std_normal(),      class = "b",  coef = "num_obs")#,
+                # prior(normal(0, 0.2),      class = "b",  coef = "num_obs:threatHigh"),
+                # prior(normal(0, 0.2),      class = "b",  coef = "num_obs:threatMedium"),
+                # prior(normal(0, 0.2),      class = "b",  coef = "num_obs:capt"),
+                # prior(normal(0, 0.2),      class = "b",  coef = "walkerRHB"),
+                # prior(normal(.5, 0.5),     class = "b",  coef = "threatHigh"),
+                # prior(normal(0, 0.2),      class = "b",  coef = "threatMedium")
+                )
+  ),
+  tar_target(
+    fit_log_noslope,
+    command = brm(form_fit_log,
+                  data        = prior_simulation_manytamia$simulated_data[[7]],
+                  prior       = priors_log,
+                  seed        = 1234,
+                  adapt_delta = 0.95,
+                  core        = 3,
+                  iter        = 5000,
+                  backend     = "cmdstanr")
+  ),
+  tar_target(
+    fit_log_fits_noslope,
+    command = update(object = fit_log,
+                     newdata = df_list_design_risk,
+                     recompile = FALSE,
+                     backend = "cmdstanr",
+                     chains = 4, cores = 4), # specify cores here?
+    pattern = map(df_list_design_risk),
+    iteration = "list"
+  ),
+  ## add LOO to each of them
+  tar_target(
+    log_fits_slope_loo,
+    command = brms::add_criterion(fit_log_fits, "loo"),
+    pattern = map(fit_log_fits),
+    iteration = "list"
+  ),
+  tar_target(
+    log_fits_noslope_loo,
+    command = brms::add_criterion(fit_log_fits_noslope, "loo"),
+    pattern = map(fit_log_fits_noslope),
+    iteration = "list"
+  ),
+  ## repeat it all for square root model ---------
+  tar_target(
+    form_fit_sqrt_noslope,
+    command = bf(sqrt(FID) ~ 1 + num_obs + (1 | tamia_id),
+                 family = gaussian())
+  ),
+  tar_target(
+    priors_log_noslope,
+    command = c(prior(lkj(2),              class = "cor"),
+                prior(normal(6, .5), class = "b", coef = "Intercept"),
+                prior(exponential(1), class = "sd", coef = "Intercept", group = "tamia_id"),
+                prior(std_normal(),      class = "b",  coef = "num_obs")#,
+                # prior(normal(0, 0.2),      class = "b",  coef = "num_obs:threatHigh"),
+                # prior(normal(0, 0.2),      class = "b",  coef = "num_obs:threatMedium"),
+                # prior(normal(0, 0.2),      class = "b",  coef = "num_obs:capt"),
+                # prior(normal(0, 0.2),      class = "b",  coef = "walkerRHB"),
+                # prior(normal(.5, 0.5),     class = "b",  coef = "threatHigh"),
+                # prior(normal(0, 0.2),      class = "b",  coef = "threatMedium")
+                )
+  ),
+  tar_target(
+    fit_log_noslope,
+    command = brm(form_fit_log,
+                  data        = prior_simulation_manytamia$simulated_data[[7]],
+                  prior       = priors_log,
+                  seed        = 1234,
+                  adapt_delta = 0.95,
+                  core        = 3,
+                  iter        = 5000,
+                  backend     = "cmdstanr")
+  ),
+  tar_target(
+    fit_log_fits_noslope,
+    command = update(object = fit_log,
+                     newdata = df_list_design_risk,
+                     recompile = FALSE,
+                     backend = "cmdstanr",
+                     chains = 4, cores = 4), # specify cores here?
+    pattern = map(df_list_design_risk),
+    iteration = "list"
+  ),
+  ## add LOO to each of them
+  tar_target(
+    log_fits_slope_loo,
+    command = brms::add_criterion(fit_log_fits, "loo"),
+    pattern = map(fit_log_fits),
+    iteration = "list"
+  ),
+  tar_target(
+    log_fits_noslope_loo,
+    command = brms::add_criterion(fit_log_fits_noslope, "loo"),
+    pattern = map(fit_log_fits_noslope),
+    iteration = "list"
+  ),
+
+
+
+
+
   tar_quarto(site, path = "index.qmd")
 )
