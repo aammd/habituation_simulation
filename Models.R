@@ -168,8 +168,7 @@ fake_tamia_id_epred |>
 # Data --------------------------------------------------------------------
 
 # Load FID data - data_FID_analyses.csv -, each row is a FID trial
-data_FID <- read.csv("
-Data/data_FID_analyses.csv",
+data_FID <- read.csv("../Habituation_predators/Data/data_FID_analyses.csv",
                      header = TRUE,
                      sep = ",")
 
@@ -251,21 +250,80 @@ summary(fit_nonlinear)
 ## Sqrt model ----
 
 # Formula
-form_fit_sqrt <- bf(sqrt(FID) ~ 1 + num_obs + threat + threat:num_obs + capt:num_obs + walker + (1 + num_obs | ID),
-                    family = gaussian())
+form_fit_sqrt <- bf(sqrt(FID) ~ 1 + num_obs + #threat + threat:num_obs + capt:num_obs + walker +
+                      (1 + num_obs | ID),
+                    family = gaussian(), center = FALSE)
 
+
+get_prior(form_fit_sqrt, data = data_all)
 
 # Assign priors
 priors_sqrt <- c(prior(lkj(2),              class = "cor"),
-                 prior(student_t(3, 0, 10), class = "sd", coef = "Intercept", group = "ID"),
-                 prior(student_t(3, 0, 10), class = "sd", coef = "num_obs",   group = "ID"),
-                 prior(normal(0, 100),      class = "b",  coef = "num_obs"),
-                 prior(normal(0, 0.2),      class = "b",  coef = "num_obs:threatHigh"),
-                 prior(normal(0, 0.2),      class = "b",  coef = "num_obs:threatMedium"),
-                 prior(normal(0, 0.2),      class = "b",  coef = "num_obs:capt"),
-                 prior(normal(0, 0.2),      class = "b",  coef = "walkerRHB"),
-                 prior(normal(.5, 0.5),     class = "b",  coef = "threatHigh"),
-                 prior(normal(0, 0.2),      class = "b",  coef = "threatMedium"))
+                 prior(exponential(1), class = "sd", coef = "Intercept", group = "ID"),
+                 prior(exponential(1), class = "sd", coef = "num_obs",   group = "ID"),
+                 prior(cauchy(0, 5), class = "sigma"),
+                 prior(normal(22, 10),    class = "b",  coef = "Intercept"),
+                 prior(normal(-2,  1),      class = "b", coef = "num_obs")#,
+                 # prior(normal(0, .1),      class = "b",  coef = "num_obs:threatHigh"),
+                 # prior(normal(0, .1),      class = "b",  coef = "num_obs:threatMedium"),
+                 # prior(normal(0, .1),      class = "b",  coef = "num_obs:capt"),
+                 # prior(normal(0, .1),      class = "b",  coef = "walkerRHB"),
+                 # prior(normal(0, .1),      class = "b",  coef = "threatHigh"),
+                 # prior(normal(0, .1),      class = "b",  coef = "threatMedium")
+                 )
+
+
+## prior check
+prior_pred_sqrt <- brm(form_fit_sqrt,
+    data        = data_all,
+    prior       = priors_sqrt,
+    seed        = 1234,
+    sample_prior = "only",
+    core        = 1,
+    iter        = 1000,
+    backend     = "cmdstanr",
+    file        = "fit_sqrt",
+    file_refit  = "on_change")
+
+
+prior_pred_sqrt_df <- add_epred_draws(data_all,
+                                      prior_pred_sqrt,
+                                      ndraws = 10)
+
+arrange(prior_pred_sqrt_df, .draw)
+
+prior_pred_sqrt_df |>
+  filter(.draw == 1) |>
+  ggplot(aes(x = num_obs, y = .epred)) + geom_point()
+
+# Plot it
+ggplot() +
+  geom_line(data = prior_pred_sqrt_df |> filter(.draw == 2), aes(x = num_obs, y = (.epred)^2, group = ID)) +
+  facet_wrap(~.draw)
+
+# Plot it
+ggplot() +
+  geom_line(data = prior_pred_sqrt_df |> filter(.draw == 2), aes(x = num_obs, y = (.epred)^2, group = ID)) +
+  facet_wrap(~.draw)
+
+
+
+
+
+p_nonlinear
+
+               stat_lineribbon(data = obs_pred_nonlinear, aes(x = num_obs, y = .epred, group = ID), size = 0.5, colour = "#0066CC", .width = .95, alpha = 0.15) +
+               scale_fill_brewer(palette = "Blues") +
+               stat_lineribbon(data = obs_pred_nonlinear, aes(x = num_obs, y = .epred, group = ID), size = 0.5, colour = "#004C99", .width = 0) + #lines without alpha value
+               guides(colour = "none") +
+               coord_cartesian(ylim = c(0,1000)) +
+               facet_wrap(~ threat) +
+               theme_bw() +
+               theme(legend.position = "none") +
+               xlab("Trial order") +
+               ylab("FID (cm)") +
+               ggtitle("Nonlinear model")
+
 
 
 # Run model 2
@@ -488,7 +546,10 @@ loo_compare(loo(fit_nonlinear), loo(fit_nonlinear_noRS), loo(fit_nonlinear_noRE)
 
 # Formula
 form_fit_sqrt_noRS <- bf(sqrt(FID) ~ 1 + num_obs + threat + threat:num_obs + capt:num_obs + walker + (1 | ID),
-                         family = gaussian())
+                         family = gaussian(),
+                         center = FALSE)
+
+get_prior(form_fit_nonlinear_noRS, DATA = )
 
 
 # Assign priors
