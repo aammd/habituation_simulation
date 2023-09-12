@@ -245,3 +245,54 @@ calculate_coverage <- function(prior_predictive_draws, all_models){
   return(coverage)
 
 }
+
+
+##################### functions for use with stantargets
+
+one_tamia_simulation <-function(num_obs = 0:20,
+                                logitM, logitp, logd, shape){
+
+  m = plogis(logitM)
+  p = plogis(logitp)
+  d = exp(logd)
+  mu = 1000 * m * (1 - p * num_obs / (d + num_obs))
+
+  df <- tibble::tibble(num_obs = num_obs,
+         FID = rgamma(length(num_obs), shape = shape, rate = shape / mu))
+
+  list(n = length(df$num_obs),
+       num_obs = df$num_obs,
+       FID = df$FID,
+       # special part for stantargets magic power
+       .join_data = list(
+         logitM = logitM,
+         logitp = logitp,
+         logd = logd,
+         shape = shape
+       )
+       )
+}
+
+#   dataset
+#
+#   list(
+#     data = data,
+#     y = data$response,
+#     x = x,
+#     n_arms = n_arms,
+#     n_beta = length(beta),
+#     n_observations = n_patients * n_visits,
+#     n_patients = n_patients,
+#     n_visits = n_visits,
+#     s_beta = 2,
+#     s_sigma = 1,
+#     missing = missing,
+#     count_missing = cumsum(missing),
+#     n_missing = sum(missing),
+#     .join_data = list(
+#       beta = beta,
+#       sigma = sigma,
+#       lambda = lambda
+#     )
+#   )
+# }

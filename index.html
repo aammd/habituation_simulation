@@ -126,7 +126,7 @@ div.csl-indent {
 
 <section id="introduction" class="level2">
 <h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
-<p>It is important to validate our statistical models before using them to reach conclusions about ecological systems. In this paper we propose a nonlinear, hierarchical statistical model to capture how Flight Initiation Distance changes with increased exposure. In this Appendix we use simulations to validate this new model, following the suggestions of @<span class="citation" data-cites="direnzo2023">(<a href="#ref-direnzo2023" role="doc-biblioref">DiRenzo, Hanks, and Miller 2023</a>)</span>. We use simulations to answer several distinct questions:</p>
+<p>It is important to validate our statistical models before using them to reach conclusions about ecological systems. In this paper we propose a nonlinear, hierarchical statistical model to capture how Flight Initiation Distance changes with increased exposure. In this Appendix we use simulations to validate this new model, following a produced suggested by DiRenzo, Hanks and Miller <span class="citation" data-cites="direnzo2023">(<a href="#ref-direnzo2023" role="doc-biblioref">2023</a>)</span>. We use simulations to answer several distinct questions:</p>
 <ol type="1">
 <li><strong>Which priors are appropriate?</strong> In hierarchical nonlinear models, it is difficult to select appropriate priors by inspection. Instead we use prior predictive checks: we select values from the prior and use these to create fake datasets.</li>
 <li><strong>Does the model recover parameters with large datasets?</strong> In models with many parameters, there is always the risk that parameters are difficult to estimate well. We fit a model with a large number of <em>Tamia</em> , each observed for many repeat observations, to validate that in this “idea” setting the model works well.</li>
@@ -412,7 +412,7 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 \alpha &amp;\sim \text{Gamma}(6.25, .25)
 \end{align}
 \]</span></p>
-<p>The simulation produces <em>Tamia</em> which vary individually, and which have the same number of observations per individual as the real dataset. We then analyzed this model with Model 4. Since there are no effects of individual-level predictors present in the model (other than Risk), We should find the posterior distributions to be close to 0 for <span class="math inline">\(\beta_c\)</span>, <span class="math inline">\(\beta_x\)</span>, <span class="math inline">\(\beta_d\)</span> and <span class="math inline">\(\beta_{sex}\)</span></p>
+<p>The simulation produces chipmunk which vary individually, and which have the same number of observations per individual as the real dataset. We then analyzed this model with Model 4. Since there are no effects of individual-level predictors present in the model (other than Risk), We should find the posterior distributions to be close to 0 for <span class="math inline">\(\beta_c\)</span>, <span class="math inline">\(\beta_x\)</span>, <span class="math inline">\(\beta_d\)</span> and <span class="math inline">\(\beta_{sex}\)</span></p>
 <div class="cell">
 <details>
 <summary>Code</summary>
@@ -440,19 +440,19 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">b_logitM_scaleNumber_captures</td>
-<td style="text-align: right;">0.10</td>
+<td style="text-align: right;">0.16</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">b_logitp_SexM</td>
-<td style="text-align: right;">0.38</td>
+<td style="text-align: right;">0.44</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">b_logitp_scaleDocility</td>
-<td style="text-align: right;">0.24</td>
+<td style="text-align: right;">0.28</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">b_logitp_scaleExploration</td>
-<td style="text-align: right;">0.12</td>
+<td style="text-align: right;">0.08</td>
 </tr>
 </tbody>
 </table>

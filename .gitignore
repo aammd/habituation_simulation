@@ -9,3 +9,5 @@ cmdstanr/*
 
 model_*.stan
 model_*.exe
+*.rds
+Methods*.docx

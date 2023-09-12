@@ -7,7 +7,7 @@
 library(targets)
 library(tarchetypes)
 library(quarto)
-
+library(stantargets)
 ## future for parallel computing
 # library(future)
 # library(future.callr)
@@ -455,6 +455,56 @@ list(
     pattern = map(fit_sqrt_fits_noslope),
     iteration = "list"
   ),
+  ### EXperimental!!!!!
+
+  tar_stan_mcmc_rep_summary(
+    name = single_indiv,
+    stan_files = c("stan/one_tamia.stan", "stan/one_tamia_log.stan"),
+    data = one_tamia_simulation(0:25, 3, 5, .8, 20), # Runs once per rep.
+    batches = 10, # Number of branch targets.
+    reps = 9, # Number of model reps per branch target.
+    chains = 4, # Number of MCMC chains.
+    parallel_chains = 4, # How many MCMC chains to run in parallel.
+    iter_warmup = 2e3, # Number of MCMC warmup iterations to run.
+    iter_sampling = 2e3, # Number of MCMC post-warmup iterations to run.
+    summaries = list(
+      # Compute posterior intervals at levels 50% and 95%.
+      # The 50% intervals should cover prior predictive parameter draws
+      # 50% of the time. The 95% intervals are similar.
+      # We also calculate posterior medians so we can compare them
+      # directly to the prior predictive draws.
+      ~posterior::quantile2(.x, probs = c(0.025, 0.25, 0.5, 0.75, 0.975)),
+      # We use Gelman-Rubin potential scale reduction factors to
+      # assess convergence:
+      rhat = ~posterior::rhat(.x)
+    ),
+    deployment = "worker"),
+
+  tar_stan_mcmc_rep_summary(
+    name = single_indiv_shape10,
+    stan_files = c("stan/one_tamia.stan",
+                   "stan/one_tamia_log.stan",
+                   "stan/one_tamia_log_shape.stan"),
+    data = one_tamia_simulation(0:25, 3, 5, .8, 10), # Runs once per rep.
+    batches = 10, # Number of branch targets.
+    reps = 9, # Number of model reps per branch target.
+    chains = 4, # Number of MCMC chains.
+    refresh = 2000,
+    parallel_chains = 4, # How many MCMC chains to run in parallel.
+    iter_warmup = 2e3, # Number of MCMC warmup iterations to run.
+    iter_sampling = 2e3, # Number of MCMC post-warmup iterations to run.
+    summaries = list(
+      # Compute posterior intervals at levels 50% and 95%.
+      # The 50% intervals should cover prior predictive parameter draws
+      # 50% of the time. The 95% intervals are similar.
+      # We also calculate posterior medians so we can compare them
+      # directly to the prior predictive draws.
+      ~posterior::quantile2(.x, probs = c(0.025, 0.25, 0.5, 0.75, 0.975)),
+      # We use Gelman-Rubin potential scale reduction factors to
+      # assess convergence:
+      rhat = ~posterior::rhat(.x)
+    ),
+    deployment = "worker"),
 
 
 
