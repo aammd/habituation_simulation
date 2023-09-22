@@ -37,6 +37,19 @@ options("cmdstanr_write_stan_file_dir" = here::here())
 tar_source(files = "R")
 # source("other_functions.R") # Source other scripts as needed. # nolint
 
+## apparently the simulation parameters need to be defined OUTSIDE the pipeline?
+tamia_sim_df <- expand.grid(
+  max_obs = 20,
+  n_tamia = c(10, 20, 40),
+  logitM =  2,
+  sd_logitM = .5,
+  logitp = 4,
+  sd_logitp = .5,
+  logd = .8,
+  sd_logd = .2,
+  shape = 10) |>
+  dplyr::mutate(sim_id = paste0("n", n_tamia))
+
 
 list(
   ## starting with a simple plot of one simulation to look at the shape of the function
@@ -486,25 +499,128 @@ list(
                    "stan/one_tamia_log.stan",
                    "stan/one_tamia_log_shape.stan"),
     data = one_tamia_simulation(0:25, 3, 5, .8, 10), # Runs once per rep.
-    batches = 10, # Number of branch targets.
-    reps = 9, # Number of model reps per branch target.
+    batches = 3, # Number of branch targets.
+    reps = 2, # Number of model reps per branch target.
     chains = 4, # Number of MCMC chains.
     refresh = 2000,
-    parallel_chains = 4, # How many MCMC chains to run in parallel.
+    parallel_chains = 2, # How many MCMC chains to run in parallel.
     iter_warmup = 2e3, # Number of MCMC warmup iterations to run.
     iter_sampling = 2e3, # Number of MCMC post-warmup iterations to run.
     summaries = list(
-      # Compute posterior intervals at levels 50% and 95%.
-      # The 50% intervals should cover prior predictive parameter draws
-      # 50% of the time. The 95% intervals are similar.
-      # We also calculate posterior medians so we can compare them
-      # directly to the prior predictive draws.
       ~posterior::quantile2(.x, probs = c(0.025, 0.25, 0.5, 0.75, 0.975)),
       # We use Gelman-Rubin potential scale reduction factors to
       # assess convergence:
       rhat = ~posterior::rhat(.x)
     ),
     deployment = "worker"),
+  tar_stan_mcmc_rep_summary(
+    name = indiv_variation,
+    stan_files = c("stan/n_tamia_log_sd_p.stan"),
+    data = n_tamia_simulation_sd_p(
+      num_obs = 0:25, n_tamia = 42,
+      logitM =  3, logitp = 4, sd_logitp = .5,
+      logd = .8, shape = 10), # Runs once per rep.
+    batches = 3, # Number of branch targets.
+    reps = 2, # Number of model reps per branch target.
+    chains = 4, # Number of MCMC chains.
+    refresh = 2000,
+    parallel_chains = 2, # How many MCMC chains to run in parallel.
+    iter_warmup = 2e3, # Number of MCMC warmup iterations to run.
+    iter_sampling = 2e3, # Number of MCMC post-warmup iterations to run.
+    summaries = list(
+      ~posterior::quantile2(
+        .x,
+        probs = c(0.025, 0.25, 0.5, 0.75, 0.975)
+        ),
+      # We use Gelman-Rubin potential scale reduction factors to
+      # assess convergence:
+      rhat = ~posterior::rhat(.x)
+    ),
+    deployment = "worker"),
+  ### make a totally separate sequence for the LOOic test
+  ## compile both models
+
+  ### log transformation power analysis
+  tar_target(
+   data_var_p,
+    command = n_tamia_simulation_sd_p(
+      num_obs = 0:20, n_tamia = 10,
+      logitM =  3, logitp = 4, sd_logitp = .5,
+      logd = .8, shape = 10)
+  ),
+  tar_target(
+    data_indiv,
+    command = n_tamia_simulation_sd_mpd(
+      max_obs = 20,
+      n_tamia = 30,
+      logitM =  2, sd_logitM = .5,
+      logitp = 4, sd_logitp = .5,
+      logd = .8, sd_logd = .2,
+      shape = 10, output_mu = TRUE)
+  ),
+  tar_target(
+    plot_indiv_test,
+    command = {
+      with(data_indiv,
+           tibble::tibble(num_obs, tamia_id, mu)) |>
+        ggplot(aes(x = num_obs, y = mu, group = tamia_id)) +
+        geom_line()
+
+    }
+  ),
+  tar_stan_mcmc(
+    name = no_indiv,
+    stan_files = "stan/log_linear_no_indiv_effect.stan",
+    data = data_indiv
+  ),
+  tar_stan_mcmc(
+    name = yes_indiv,
+    stan_files = "stan/log_linear_with_indiv_effect.stan",
+    data = data_indiv
+  ),
+  tar_stan_mcmc(
+    name = no_indiv_ri,
+    stan_files = "stan/log_linear_no_indiv_effect_ri.stan",
+    data = data_indiv
+  ),
+  tar_stan_mcmc(
+    name = yes_indiv_ri,
+    stan_files = "stan/log_linear_with_indiv_effect_ri.stan",
+    data = data_indiv
+  ),
+  # compare the groups --
+  ## model compilation
+  tar_target(
+    name = non_var_log,
+    command = cmdstanr::cmdstan_model(stan_file = "stan/log_linear_no_indiv_effect_ri.stan")
+  ),
+  tar_target(
+    name = oui_var_log,
+    command = cmdstanr::cmdstan_model(stan_file = "stan/log_linear_with_indiv_effect_ri.stan")
+  ),
+  ## simulation
+  tarchetypes::tar_map_rep(
+    pwr_log,
+    command = compare_two_models_loo(
+      model1 = non_var_log,
+      model2 = oui_var_log,
+      names = c("non_var_log", "oui_var_log"),
+      max_obs = max_obs,
+      n_tamia = n_tamia,
+      logitM =  logitM,
+      sd_logitM = sd_logitM,
+      logitp = logitp,
+      sd_logitp = sd_logitp,
+      logd = logd,
+      sd_logd = sd_logd,
+      shape = shape
+      ),
+    values = tamia_sim_df,
+    batches = 3,
+    reps = 5,
+    names = tidyselect::any_of("sim_id")
+  ),
+
 
 
 

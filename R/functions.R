@@ -273,26 +273,206 @@ one_tamia_simulation <-function(num_obs = 0:20,
        )
 }
 
-#   dataset
+process_prop_log_trans <- function(sim_df_results){
+  single_indiv_shape10 |>
+    filter(variable != "lp__") |>
+    mutate(.join_data = if_else(.name == "one_tamia_log_shape" & variable == "shape",
+                                true = log(.join_data), false = .join_data)) |>
+    group_by(variable, .name) |>
+    summarize(in50 = sum(q25 < .join_data & .join_data < q75),
+              in95 = sum(q2.5 < .join_data & .join_data < q97.5))
+}
+
+process_prop_output <- function(output_df){
+  output_df |>
+    filter(variable != "lp__") |>
+    group_by(variable, .name) |>
+    summarize(in50 = sum(q25 < .join_data & .join_data < q75),
+              in95 = sum(q2.5 < .join_data & .join_data < q97.5))
+}
+
+#' Simulate tamia that vary in HOW MUCH they habituate
+#'
+#' all dama drop from the same point and the same rate, but reach different
+#' final levels of fear.
+#'
+#' @param num_obs vector of observations for this animal
+#' @param n_tamia number of tamia we're simulating
+#' @param logitM how much they are scared at the beginning, as a proportion of 1000, on logit scale
+#' @param logitp average proportion of that original value lost to habituation, logit scale
+#' @param sd_logitp sd on logit scale of indiv variation in that
+#' @param logd half-saturation, log scale.˜
+#' @param shape shape parameter
+#'
+#' @return data ready for a Stan model plus the .join_data list that targets likes
+n_tamia_simulation_sd_p <-function(num_obs = 0:20,
+                                n_tamia,
+                                logitM,
+                                logitp,
+                                sd_logitp,
+                                logd,
+                                shape){
+
+  tamia_p <- rnorm(n_tamia, mean = 0, sd = sd_logitp)
+  m = plogis(logitM)
+  p_vec = plogis(logitp + tamia_p)
+  d = exp(logd)
+
+  df <- tidyr::expand_grid(
+    num_obs = num_obs,
+    tamia_id = 1:n_tamia) |>
+    dplyr::mutate(
+      p = p_vec[tamia_id],
+      m = m,
+      d = d,
+      mu = 1000 * m * (1 - p * num_obs / (d + num_obs)),
+      FID = rgamma(length(num_obs), shape = shape, rate = shape / mu)
+  )
+
+  list(n = length(df$num_obs),
+       n_tamia = n_tamia,
+       num_obs = df$num_obs,
+       tamia_id = df$tamia_id,
+       FID = df$FID,
+       # special part for stantargets magic power
+       .join_data = list(
+         logitM = logitM,
+         logitp = logitp,
+         sd_logitp = sd_logitp,
+         tamia_p = tamia_p,
+         logd = logd,
+         shape = shape
+       )
+  )
+}
+
+#' Simulate tamia that vary in HOW MUCH they habituate
+#'
+#' simulate _tamia_ that habituate, but each according to an individual value of
+#' * m, the starting point
+#' * p, the final ending point
+#' * d, the halfway point between m and p
+#'
+#'
+#' @param num_obs vector of observations for this animal
+#' @param n_tamia number of tamia we're simulating
+#' @param logitM how much they are scared at the beginning, as a proportion of 1000, on logit scale
+#' @param logitp average proportion of that original value lost to habituation, logit scale
+#' @param sd_logitp sd on logit scale of indiv variation in that
+#' @param logd half-saturation, log scale.˜
+#' @param shape shape parameter
+#' @param sd_logitM  sd on logit scale of M
+#' @param sd_logd sd on LOG scale of d
+#'
+#' @return data ready for a Stan model plus the .join_data list that targets likes
+n_tamia_simulation_sd_mpd <- function(
+    max_obs = 20,
+    n_tamia,
+    logitM,
+    sd_logitM,
+    logitp,
+    sd_logitp,
+    logd,
+    sd_logd,
+    shape,
+    output_mu = FALSE){
+
+  # individual effects
+  tamia_M <- rnorm(n_tamia, mean = 0, sd = sd_logitM)
+  tamia_p <- rnorm(n_tamia, mean = 0, sd = sd_logitp)
+  tamia_d <- rnorm(n_tamia, mean = 0, sd = sd_logd)
+
+  m_indiv = plogis(logitM + tamia_M)
+  p_indiv = plogis(logitp + tamia_p)
+  d_indiv = exp(logd + tamia_d)
+
+  df <- tidyr::expand_grid(
+    num_obs = 0:max_obs,
+    tamia_id = 1:n_tamia) |>
+    dplyr::mutate(
+      p = p_indiv[tamia_id],
+      m = m_indiv[tamia_id],
+      d = d_indiv[tamia_id],
+      mu = 1000 * m * (1 - p * num_obs / (d + num_obs)),
+      FID = rgamma(length(num_obs), shape = shape, rate = shape / mu)
+    )
+
+  outlist <- list(n = length(df$num_obs),
+       n_tamia = n_tamia,
+       num_obs = df$num_obs,
+       tamia_id = df$tamia_id,
+       FID = df$FID,
+       # special part for stantargets magic power
+       .join_data = list(
+         logitM = logitM,
+         logitp = logitp,
+         sd_logitp = sd_logitp,
+         # tamia_p = tamia_p,
+         # tamia_M = tamia_M,
+         # tamia_d = tamia_d,
+         logd = logd,
+         shape = shape
+       )
+  )
+
+  if (isTRUE(output_mu)) {
+    outlist$mu <- df$mu
+  }
+
+  return(outlist)
+}
+
+
+compare_two_models_loo <- function(model1,
+                                   model2,
+                                   names = c("m1", "m2"),
+                                   ...){
+
+  sim_data <-  n_tamia_simulation_sd_mpd(...)
+
+  m1_samples <- model1$sample(data = sim_data, refresh = 0L)
+
+  m1_loo <- m1_samples$loo()
+  # targets::tar_load(some_groups)
+  m2_samples <- model2$sample(data = sim_data, refresh=0L)
+  m2_loo <- m2_samples$loo()
+  # simulate_normal(50)
+  loolist <- list(m1_loo, m2_loo) |> purrr::set_names(names)
+  as.data.frame(loo::loo_compare(loolist)) |>
+    tibble::rownames_to_column(var = "model")
+}
+
+
+# ddd <- one_tamia_simulation_sd_p(0:20, n_tamia = 12,
+#                                  logitM = 3, logitp = 2,
+#                                  sd_logitp = .5, logd = 2, shape = 10)
 #
-#   list(
-#     data = data,
-#     y = data$response,
-#     x = x,
-#     n_arms = n_arms,
-#     n_beta = length(beta),
-#     n_observations = n_patients * n_visits,
-#     n_patients = n_patients,
-#     n_visits = n_visits,
-#     s_beta = 2,
-#     s_sigma = 1,
-#     missing = missing,
-#     count_missing = cumsum(missing),
-#     n_missing = sum(missing),
-#     .join_data = list(
-#       beta = beta,
-#       sigma = sigma,
-#       lambda = lambda
-#     )
-#   )
-# }
+# ddd[c("num_obs", "tamia_id", "FID")] |>
+#   as_tibble() |>
+#   ggplot(aes(x = num_obs, y = FID)) + geom_point() + facet_wrap(~tamia_id)
+
+# datalist <- n_tamia_simulation_sd_p(num_obs = 0:25, n_tamia = 45,
+#                                     logitM = 3, logitp = 4, sd_logitp = 1,
+#                                     logd = 3, shape = 20)
+# # targets::tar_load(stan_no_indiv_var)
+# # stan_no_indiv_var |> str()
+# one_tamia_log <- cmdstanr::cmdstan_model("stan/one_tamia_log.stan")
+# one_tamia_samples <- one_tamia_log$sample(
+#   data = list(n = datalist$n,
+#               num_obs = datalist$num_obs,
+#               FID = datalist$FID),
+#   parallel_chains = 2,
+#   chains = 2,
+#   refresh = 0L)
+#
+# one_tamia_samples$loo()
+#
+# n_tamia_log_sd_p <- cmdstanr::cmdstan_model("stan/n_tamia_log_sd_p.stan")
+# n_tamia_log_sd_p_samples <- n_tamia_log_sd_p$sample(
+#   data = list(n = datalist$n,
+#               num_obs = datalist$num_obs,
+#               FID = datalist$FID,
+#               n_tamia = datalist$n_tamia, tamia_id = datalist$tamia_id),
+#   parallel_chains = 2,
+#   chains = 2,
+#   refresh = 0L)
