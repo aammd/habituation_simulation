@@ -114,3 +114,21 @@ big_diff |>
   )  +
   geom_pointrange(position = position_jitter(height = 0)) +
   facet_wrap(~n_tamia)
+
+
+### look and my predictions
+
+tar_make(one_sp_fit_draws_one_tamia_log)
+tar_load(one_sp_fit_draws_one_tamia_log)
+
+tar_load(one_sp_fit_data)
+
+some_yrep <- one_sp_fit_draws_one_tamia_log |>
+  select(starts_with("yrep")) |>
+  head(100) |>
+  as.matrix()
+
+bayesplot::ppc_dens_overlay(one_sp_fit_data$FID,
+                            yrep = some_yrep)# +
+  coord_cartesian(xlim = c(0, 2.5))
+

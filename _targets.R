@@ -20,7 +20,7 @@ library(stantargets)
 tar_option_set(
   packages = c("brms", "tibble",
                "tidybayes", "ggplot2",
-               "tarchetypes"), # packages that your targets need to run
+               "tarchetypes", "dplyr"), # packages that your targets need to run
   format = "rds" # default storage format
   # Set other options as needed.
 )
@@ -42,11 +42,11 @@ tamia_sim_df <- expand.grid(
   max_obs = 20,
   n_tamia = c(10, 20, 40),
   logitM =  2,
-  sd_logitM = .5,
+  sd_logitM = 1,
   logitp = 4,
-  sd_logitp = .5,
+  sd_logitp = 1,
   logd = .8,
-  sd_logd = .2,
+  sd_logd = 1,
   shape = 10) |>
   dplyr::mutate(sim_id = paste0("n", n_tamia))
 
@@ -513,6 +513,16 @@ list(
       rhat = ~posterior::rhat(.x)
     ),
     deployment = "worker"),
+  ## does it fit well
+
+  tar_stan_mcmc(
+    name = one_sp_fit,
+    stan_files = "stan/one_tamia_log.stan",
+    data = one_tamia_simulation(0:25, 3, 5, .8, 10)
+  ),
+
+
+  ## adding variation to one parameter
   tar_stan_mcmc_rep_summary(
     name = indiv_variation,
     stan_files = c("stan/n_tamia_log_sd_p.stan"),
@@ -537,8 +547,7 @@ list(
       rhat = ~posterior::rhat(.x)
     ),
     deployment = "worker"),
-  ### make a totally separate sequence for the LOOic test
-  ## compile both models
+  ###
 
   ### log transformation power analysis
   tar_target(
@@ -553,9 +562,9 @@ list(
     command = n_tamia_simulation_sd_mpd(
       max_obs = 20,
       n_tamia = 30,
-      logitM =  2, sd_logitM = .5,
-      logitp = 4, sd_logitp = .5,
-      logd = .8, sd_logd = .2,
+      logitM =  2, sd_logitM = 1,
+      logitp = 4, sd_logitp = 1,
+      logd = .8, sd_logd = 1,
       shape = 10, output_mu = TRUE)
   ),
   tar_target(
@@ -617,8 +626,12 @@ list(
       ),
     values = tamia_sim_df,
     batches = 3,
-    reps = 5,
+    reps = 2,
     names = tidyselect::any_of("sim_id")
+  ),
+  tar_target(
+    fig_loo_size,
+    command = plot_loo_results(pwr_log)
   ),
 
 
