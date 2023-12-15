@@ -130,5 +130,20 @@ some_yrep <- one_sp_fit_draws_one_tamia_log |>
 
 bayesplot::ppc_dens_overlay(one_sp_fit_data$FID,
                             yrep = some_yrep)# +
-  coord_cartesian(xlim = c(0, 2.5))
+coord_cartesian(xlim = c(0, 2.5))
 
+
+##
+
+tar_make(many_sp_fit_draws_many_tamia_log)
+tar_load(many_sp_fit_draws_many_tamia_log)
+tar_load(many_sp_fit_data)
+
+some_yrep <- many_sp_fit_draws_many_tamia_log |>
+  select(starts_with("yrep")) |>
+  head(100) |>
+  as.matrix()
+
+bayesplot::ppc_dens_overlay(many_sp_fit_data$FID,
+                            yrep = some_yrep)# +
+coord_cartesian(xlim = c(0, 2.5))

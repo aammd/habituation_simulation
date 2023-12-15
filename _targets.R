@@ -8,6 +8,7 @@ library(targets)
 library(tarchetypes)
 library(quarto)
 library(stantargets)
+library(patchwork)
 ## future for parallel computing
 # library(future)
 # library(future.callr)
@@ -20,7 +21,7 @@ library(stantargets)
 tar_option_set(
   packages = c("brms", "tibble",
                "tidybayes", "ggplot2",
-               "tarchetypes", "dplyr"), # packages that your targets need to run
+               "tarchetypes", "dplyr", "patchwork"), # packages that your targets need to run
   format = "rds" # default storage format
   # Set other options as needed.
 )
@@ -522,6 +523,7 @@ list(
   ),
 
 
+
   ## adding variation to one parameter
   tar_stan_mcmc_rep_summary(
     name = indiv_variation,
@@ -568,14 +570,20 @@ list(
       shape = 10, output_mu = TRUE)
   ),
   tar_target(
-    plot_indiv_test,
-    command = {
+    fig_indiv_test,
+    command =
       with(data_indiv,
            tibble::tibble(num_obs, tamia_id, mu)) |>
         ggplot(aes(x = num_obs, y = mu, group = tamia_id)) +
         geom_line()
-
-    }
+  ),
+  tar_target(
+    fig_indiv_test_points,
+    command =
+      with(data_indiv,
+           tibble::tibble(num_obs, tamia_id, FID)) |>
+      ggplot(aes(x = num_obs, y = FID, group = tamia_id)) +
+      geom_point()
   ),
   tar_stan_mcmc(
     name = no_indiv,
@@ -633,9 +641,114 @@ list(
     fig_loo_size,
     command = plot_loo_results(pwr_log)
   ),
+  ### Square Root section --------
 
+  tar_target(
+    name = non_var_sqr,
+    command = cmdstanr::cmdstan_model(stan_file = "stan/sqr_linear_no_indiv_effect_ri.stan")
+  ),
+  tar_target(
+    name = oui_var_sqr,
+    command = cmdstanr::cmdstan_model(stan_file = "stan/sqr_linear_with_indiv_effect_ri.stan")
+  ),
+  ## simulation
+  tarchetypes::tar_map_rep(
+    pwr_sqr,
+    command = compare_two_models_loo(
+      model1 = non_var_sqr,
+      model2 = oui_var_sqr,
+      names = c("non_var_sqr",
+                "oui_var_sqr"),
+      max_obs = max_obs,
+      n_tamia = n_tamia,
+      logitM =  logitM,
+      sd_logitM = sd_logitM,
+      logitp = logitp,
+      sd_logitp = sd_logitp,
+      logd = logd,
+      sd_logd = sd_logd,
+      shape = shape
+    ),
+    values = tamia_sim_df,
+    batches = 3,
+    reps = 2,
+    names = tidyselect::any_of("sim_id")
+  ),
 
+  ## Nonlinear model section-----
 
+  ## random effects model for individual tamia
+  tar_stan_mcmc(
+    name = many_sp_fit,
+    stan_files = "stan/many_tamia_log.stan",
+    data = data_indiv
+  ),
+  ## compile and compare a model with and without individual parameters
+  tar_target(
+    name = one_tamia_log,
+    command = cmdstanr::cmdstan_model(stan_file = "stan/one_tamia_log.stan")
+  ),
+  tar_target(
+    name = many_tamia_log,
+    command = cmdstanr::cmdstan_model(stan_file = "stan/many_tamia_log.stan")
+  ),
+  ## simulation
+  tarchetypes::tar_map_rep(
+    pwr_nonlin,
+    command = compare_two_models_loo(
+      model1 = one_tamia_log,
+      model2 = many_tamia_log,
+      names = c("non_var", "oui_var"),
+      max_obs = max_obs,
+      n_tamia = n_tamia,
+      logitM =  logitM,
+      sd_logitM = sd_logitM,
+      logitp = logitp,
+      sd_logitp = sd_logitp,
+      logd = logd,
+      sd_logd = sd_logd,
+      shape = shape
+    ),
+    values = tamia_sim_df,
+    batches = 3,
+    reps = 2,
+    names = tidyselect::any_of("sim_id")
+  ),
+  ## plot results
+  tar_target(
+    fig_loo_loglin,
+    command = plot_loo_table(pwr_log, best_model_name = "oui_var_log") +
+      geom_hline(yintercept = 0, lty = 2) +
+      labs(title = "log-transformed FID",
+           y = "Difference to model without individual variation",
+           x = "Number of individauls")
+  ),
+  tar_target(
+    fig_loo_sqr,
+    command = plot_loo_table(pwr_sqr, best_model_name = "oui_var_sqr") +
+      # coord_cartesian(ylim = c(-8, 1))+
+      geom_hline(yintercept = 0, lty = 2) +
+      labs(title = "Square-root transformed FID",
+           y = "Difference to model without individual variation",
+           x = "Number of individauls")
+  ),
+  tar_target(
+    fig_loo_nonlin,
+    command = plot_loo_table(pwr_nonlin, best_model_name = "oui_var") +
+      coord_cartesian(ylim = c(-800, 1))+
+      geom_hline(yintercept = 0, lty = 2) +
+      labs(title = "Nonlinear model of FID",
+           y = "Difference to model without individual variation",
+           x = "Number of individauls")
+  ),
+  tar_target(
+    fig_panel,
+    command = {fig_loo_loglin + fig_loo_sqr + fig_loo_nonlin}
+  ),
+  tar_target(
+    fig_data_example,
+    command = {fig_indiv_test + fig_indiv_test_points}
+  ),
 
 
   tar_quarto(site, path = "index.qmd")

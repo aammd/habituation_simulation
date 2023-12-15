@@ -508,3 +508,31 @@ plot_loo_results <- function(loo_df) {
     facet_wrap(~n_tamia)
 
 }
+
+#' plot the loo results
+#'
+#'
+#' @param loo_df data frame of loo results. needs columns named sim_id, n_tamia,
+#'   tar_batch and tar_rep
+#' @param best_model_name name of the model that "should" be the winner
+#'
+#' @return a ggplot
+plot_loo_table <- function(loo_df,
+                           best_model_name = "oui_var_log") {
+  big_diff <- loo_df |>
+    group_by(sim_id, n_tamia, tar_batch, tar_rep) |>
+    filter(elpd_diff == min(elpd_diff)) |>
+    ungroup() |>
+    ## REVERSE the sign when the _wrong_ model wins
+    mutate(elpd_diff = if_else(model == best_model_name,
+                               true = -elpd_diff,
+                               false =elpd_diff ),
+           elpd_low = elpd_diff - se_diff,
+           elpd_hig = elpd_diff + se_diff)
+
+  big_diff |> # glimpse() |>
+    ggplot(aes(x = n_tamia,
+               y = elpd_diff,
+               ymin = elpd_low, ymax = elpd_hig))  +
+    geom_pointrange(position = position_jitter(height = 0, width = .5))
+}
