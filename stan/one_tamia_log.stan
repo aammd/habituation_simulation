@@ -22,10 +22,10 @@ model{
   - log1p_exp(ln_nobs - logd) );
 
   FID ~ gamma(shape, shape * exp (logmu));
-  shape ~ cauchy(0, 5);
-  logitM ~ std_normal();
-  logitp ~ normal(2, .5);
-  logd ~ normal(5, 2);
+  shape ~ lognormal(2.3, .2);
+  logitM ~ normal(3, .5);
+  logitp ~ normal(5, .5);
+  logd ~ normal(.8, .2);
 }
 generated quantities {
   vector[n] mu;

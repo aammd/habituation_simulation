@@ -25,15 +25,176 @@ It is important to validate our statistical models before using them to reach co
 #| warning: false
 options(tidyverse.quiet = TRUE)
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", tar_simple = TRUE)
+source("R/functions.R")
 library(brms)
 library(tidyverse)
 library(tidybayes)
 library(targets)
 ```
 
-## Mathematical description
+## Single-individual model
 
-In this Appendix we validate the following model of Flight Initiation distance:
+We begin by evaluating the simplest case: one individual _Tamia_, observed repeatedly and habituating to a constant stimulus. We model the habituation using the following assumptions:
+
+* _Tamia_ begin with a high FID. This value is between 0 and 1000cm, because in our experiment this was the maximum distance at which an experimenter initiated the threat treatment.
+* FID declines with repeat exposures. It never goes below 0, and can only decline. While other models allow individuals to _sensitize_, we do not.
+* FID does not need to decline all the way to 0, but can stop between 0 and the starting value. * FID declines such that after a certain number of exposures, the individual's FID is halfway between the starting value and the final value. The higher the number of exposures needed to get halfway to final FID, the slower the habituation.
+
+The curve we finally ended up fitting resembles a classic TYPE II functional response curve, but inverted and scaled to correspond to our system.
+
+Here is the full bayesian model, including our expression for the average and all the priors.
+
+$$
+\begin{align}
+\text{FID} &\sim \text{Gamma}(\alpha, \alpha/\mu) \\
+\mu &= M \times 1000 \times \left(1 - \frac{p \times X}{d + X} \right) \\
+\text{logit}(M) &= M_0 \\
+\text{logit}(p) &= p_0 \\
+\text{log}(d)   &= d_0 \\
+M_0 &\sim N(0.5, 0.5)\\
+p_0 &\sim N(-1, 0.2)\\
+d_0 &\sim N(1.5, 0.5)\\
+\alpha &\sim \text{Gamma}(6.25, .25)
+\end{align}
+$$
+
+### prior simulations
+
+```{r}
+
+one_tamia_simulation(0:25,
+                     logitM = 3,
+                     logitp = 5,
+                     logd = .8,
+                     shape =  10)[c("num_obs", "FID")] |> 
+  as.data.frame() |> 
+  ggplot(aes(x = num_obs, y = FID)) + 
+  geom_point()
+```
+
+### Different parameterizations 
+
+I've chosen to experiment with writing this model on the log scale. 
+This will give us more flexibility later, and may also help the model to fit accurately.
+
+$$
+\begin{align}
+\text{FID} &\sim \text{Gamma}(\alpha, \alpha/\mu) \\
+\ln(\mu) &= \ln(M) + 6.9 + \ln\left(1 - \frac{p \times X}{d + X} \right) \\
+\text{logit}(M) &= M_0 \\
+\text{logit}(p) &= p_0 \\
+\text{log}(d)   &= d_0 \\
+M_0 &\sim N(0.5, 0.5)\\
+p_0 &\sim N(-1, 0.2)\\
+d_0 &\sim N(1.5, 0.5)\\
+\alpha &\sim \text{Gamma}(6.25, .25)
+\end{align}
+$$
+
+in the model file `one_tamia`, we use the mathematical model as written:
+
+```
+  vector[n] mu;
+  real m = inv_logit(logitM);
+  real p = inv_logit(logitp);
+  real d = exp(logd);
+  mu = 1000 * m * (1 - p * num_obs ./ (d + num_obs));
+
+  FID ~ gamma(shape, shape / mu);
+  shape ~ lognormal(2.3, .2);
+  logitM ~ normal(3, .5);
+  logitp ~ normal(5, .5);
+  logd ~ normal(.8, .2);
+```
+
+in model `one_tamia_log`, I write the expression for the average on the log scale
+
+```
+  vector[n] logmu;
+  logmu = - 6.9
+  - log_inv_logit(logitM)
+  - log1m_exp( log_inv_logit(logitp)
+  + ln_nobs
+  - logd
+  - log1p_exp(ln_nobs - logd) );
+
+  FID ~ gamma(shape, shape * exp (logmu));
+  shape ~ lognormal(2.3, .2);
+  logitM ~ normal(3, .5);
+  logitp ~ normal(5, .5);
+  logd ~ normal(.8, .2);
+```
+
+in model `one_tamia_log_shape` I write the model as above, but also put the shape parameter on the log scale:
+
+```
+  vector[n] logmu;
+  real m = inv_logit(logitM);
+  real p = inv_logit(logitp);
+  real d = exp(logd);
+  logmu = - 6.9
+  - log_inv_logit(logitM) - log1m_exp( log_inv_logit(logitp) + ln_nobs - logd - log1p_exp(ln_nobs - logd) );
+
+  FID ~ gamma(exp(shape), exp (logmu + shape));
+  shape ~ normal(2.3, .2);
+  logitM ~ normal(3, .5);
+  logitp ~ normal(5, .5);
+  logd ~ normal(.8, .2);
+```
+
+Simulations on these three models show they are all equally good at recovering parameters
+
+```{r}
+tar_load(comp_param)
+
+comp_param |> 
+  filter(
+    variable %in%  c("shape", 
+                     "logitM",
+                     "logitp", 
+                     "logd")) |> 
+  mutate(q50 = if_else(
+    .name == "one_tamia_log_shape" & variable == "shape",
+    exp(q50),
+    q50)) |> 
+  ggplot(aes(x = variable, y = q50)) + 
+  geom_point() + 
+  geom_point(aes(y = .join_data), col = "red") + 
+  facet_wrap(~.name)
+```
+
+### Prior predictive distribution
+
+The above was fit to a model where the observations vary but the _parameters_ all have the same values. TK figure reference. However, to be sure our model works well we should fit it to a prior simulation of the dataset. 
+
+```{r}
+tar_load(prior_pred)
+
+prior_pred |> 
+  filter(variable %in% c("logitM", "logitp", "logd", "shape")) |>  
+  mutate(
+    q2.5 = if_else(
+      .name == "one_tamia_log_shape" & variable == "shape",
+      exp(q2.5),
+      q2.5),
+    q97.5 = if_else(
+      .name == "one_tamia_log_shape" & variable == "shape",
+      exp(q97.5),
+      q97.5)
+  ) |> 
+  group_by(.name, variable) |> 
+  summarize(cov_95 = sum(.join_data > q2.5 & .join_data < q97.5)/n()) |> 
+  ggplot(aes(x = variable, y = cov_95)) + 
+  geom_point() + 
+  facet_wrap(~.name) + 
+  coord_cartesian(ylim = c(0,1))
+```
+
+This shows that coverage is excellent for all parameters, with the exception of `logd`, which is recovered a little less than 80% of the time at the 95% confidence interval.
+
+### Multiple individuals
+
+To extend this model to multiple individuals we need to add hyperparameters to it:
 
 $$
 \begin{align}

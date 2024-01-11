@@ -387,7 +387,7 @@ n_tamia_simulation_sd_mpd <- function(
   d_indiv = exp(logd + tamia_d)
 
   df <- tidyr::expand_grid(
-    num_obs = 0:max_obs,
+    num_obs = 1:max_obs,
     tamia_id = 1:n_tamia) |>
     dplyr::mutate(
       p = p_indiv[tamia_id],
@@ -406,7 +406,7 @@ n_tamia_simulation_sd_mpd <- function(
        .join_data = list(
          logitM = logitM,
          logitp = logitp,
-         sd_logitp = sd_logitp,
+         # sd_logitp = sd_logitp,
          # tamia_p = tamia_p,
          # tamia_M = tamia_M,
          # tamia_d = tamia_d,

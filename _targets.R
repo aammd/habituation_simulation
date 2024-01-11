@@ -469,88 +469,59 @@ list(
     pattern = map(fit_sqrt_fits_noslope),
     iteration = "list"
   ),
-  ### using Stan instead ----
+
+  # using Stan instead ----
 
   tar_stan_mcmc_rep_summary(
-    name = single_indiv,
-    stan_files = c("stan/one_tamia.stan", "stan/one_tamia_log.stan"),
-    data = one_tamia_simulation(0:25, 3, 5, .8, 20), # Runs once per rep.
-    batches = 10, # Number of branch targets.
-    reps = 9, # Number of model reps per branch target.
+    name = comp_param,
+    stan_files = c("stan/one_tamia.stan",
+                   "stan/one_tamia_log.stan",
+                   "stan/one_tamia_log_shape.stan"),
+    data = one_tamia_simulation(1:25,
+                                logitM = 3,
+                                logitp = 5,
+                                logd = .8,
+                                shape =  10), # Runs once per rep.
+    batches = 3, # Number of branch targets.
+    reps = 2, # Number of model reps per branch target.
+    chains = 2, # Number of MCMC chains.
+    refresh = 2000,
+    parallel_chains = 2, # How many MCMC chains to run in parallel.
+    iter_warmup = 2e3, # Number of MCMC warmup iterations to run.
+    iter_sampling = 2e3, # Number of MCMC post-warmup iterations to run.
+    summaries = list(
+      ~posterior::quantile2(.x, probs = c(0.025, 0.25, 0.5, 0.75, 0.975)),
+      # We use Gelman-Rubin potential scale reduction factors to
+      # assess convergence:
+      rhat = ~posterior::rhat(.x)
+    ),
+    deployment = "worker"),
+  ## prior predictive simulation
+  tar_stan_mcmc_rep_summary(
+    name = prior_pred,
+    stan_files = c("stan/one_tamia.stan",
+                   "stan/one_tamia_log.stan",
+                   "stan/one_tamia_log_shape.stan"),
+    data = n_tamia_simulation_sd_mpd(
+      max_obs = 25,n_tamia = 1,
+      logitM = 3, sd_logitM = .5,
+      logitp = 5, sd_logitp = .5,
+      logd = .8, sd_logd = .2,
+      shape =  10), # Runs once per rep.
+    batches = 5, # Number of branch targets.
+    reps = 6, # Number of model reps per branch target.
     chains = 4, # Number of MCMC chains.
+    refresh = 0L,
     parallel_chains = 4, # How many MCMC chains to run in parallel.
     iter_warmup = 2e3, # Number of MCMC warmup iterations to run.
     iter_sampling = 2e3, # Number of MCMC post-warmup iterations to run.
     summaries = list(
-      # Compute posterior intervals at levels 50% and 95%.
-      # The 50% intervals should cover prior predictive parameter draws
-      # 50% of the time. The 95% intervals are similar.
-      # We also calculate posterior medians so we can compare them
-      # directly to the prior predictive draws.
       ~posterior::quantile2(.x, probs = c(0.025, 0.25, 0.5, 0.75, 0.975)),
       # We use Gelman-Rubin potential scale reduction factors to
       # assess convergence:
       rhat = ~posterior::rhat(.x)
     ),
     deployment = "worker"),
-
-  tar_stan_mcmc_rep_summary(
-    name = single_indiv_shape10,
-    stan_files = c("stan/one_tamia.stan",
-                   "stan/one_tamia_log.stan",
-                   "stan/one_tamia_log_shape.stan"),
-    data = one_tamia_simulation(0:25, 3, 5, .8, 10), # Runs once per rep.
-    batches = 3, # Number of branch targets.
-    reps = 2, # Number of model reps per branch target.
-    chains = 4, # Number of MCMC chains.
-    refresh = 2000,
-    parallel_chains = 2, # How many MCMC chains to run in parallel.
-    iter_warmup = 2e3, # Number of MCMC warmup iterations to run.
-    iter_sampling = 2e3, # Number of MCMC post-warmup iterations to run.
-    summaries = list(
-      ~posterior::quantile2(.x, probs = c(0.025, 0.25, 0.5, 0.75, 0.975)),
-      # We use Gelman-Rubin potential scale reduction factors to
-      # assess convergence:
-      rhat = ~posterior::rhat(.x)
-    ),
-    deployment = "worker"),
-  ## does it fit well
-
-  tar_stan_mcmc(
-    name = one_sp_fit,
-    stan_files = "stan/one_tamia_log.stan",
-    data = one_tamia_simulation(0:25, 3, 5, .8, 10)
-  ),
-
-
-
-  ## adding variation to one parameter
-  tar_stan_mcmc_rep_summary(
-    name = indiv_variation,
-    stan_files = c("stan/n_tamia_log_sd_p.stan"),
-    data = n_tamia_simulation_sd_p(
-      num_obs = 0:25, n_tamia = 42,
-      logitM =  3, logitp = 4, sd_logitp = .5,
-      logd = .8, shape = 10), # Runs once per rep.
-    batches = 3, # Number of branch targets.
-    reps = 2, # Number of model reps per branch target.
-    chains = 4, # Number of MCMC chains.
-    refresh = 2000,
-    parallel_chains = 2, # How many MCMC chains to run in parallel.
-    iter_warmup = 2e3, # Number of MCMC warmup iterations to run.
-    iter_sampling = 2e3, # Number of MCMC post-warmup iterations to run.
-    summaries = list(
-      ~posterior::quantile2(
-        .x,
-        probs = c(0.025, 0.25, 0.5, 0.75, 0.975)
-        ),
-      # We use Gelman-Rubin potential scale reduction factors to
-      # assess convergence:
-      rhat = ~posterior::rhat(.x)
-    ),
-    deployment = "worker"),
-  ###
-
   ### log transformation power analysis
   tar_target(
    data_var_p,
