@@ -224,19 +224,6 @@ This model is an adaptation of the classic Type II functional response, adapted 
 
 This is an initial version of the model, which does not contain any effect of threat treatment or any effect of personality.  
 
-```{r one_curve}
-#| label: fig-curves
-#| fig-cap: "Two examples of the function (left) and the potential observations (right) described by our model"
-#| fig-subcap: 
-#|   - "The functional shape of our FID model. Dashed lines indicate the parameters that describe the curve: $M$ (orange line) $d$ (blue line) and $M(1-p)$ (red line)"
-#|   - "We simulate observations from a Gamma distribution centered on the predicted line."
-#| layout-ncol: 2
-tar_load(one_curve)
-one_curve
-
-tar_load(one_sim_plot)
-one_sim_plot
-```
 
 ## Prior predictive simulations
 
@@ -246,27 +233,15 @@ Simulating data from a prior is essential for defining priors that reflect knowl
 #| label: fig-prior-pred
 #| fig-cap: Simulations from the prior predictive distribution for our model of FID (Flight initiation distance). Each panel is a simulated chipmunk.
 
-tar_load(model_prior_sim)
+tar_load(prior_pred_data)
 
-un_tamia <- tibble::tibble(tamia_id = "un_tamia",
-               num_obs = 1:20)
-
-un_tamia_pred <- un_tamia |> 
-  tidybayes::add_predicted_draws(model_prior_sim,
-                                 ndraws = 15,
-                                 seed = 1234)
-
-un_tamia_expect <- un_tamia |> 
-  tidybayes::add_epred_draws(model_prior_sim,
-                             ndraws = 15, 
-                             seed = 1234)
-
-un_tamia_expect |> 
-  left_join(un_tamia_pred) |>
-  ggplot2::ggplot(ggplot2::aes(x = num_obs, y = .prediction)) + 
-  ggplot2::geom_point() + 
-  ggplot2::geom_line(aes(y = .epred)) + 
-  ggplot2::facet_wrap(~.draw, ncol=5) + 
+prior_pred_data |> 
+  map_depth(2, ~.x[c("num_obs", "FID")]) |> 
+  flatten() |> 
+  map_df(as_tibble, .id = "rep") |>
+  ggplot2::ggplot(ggplot2::aes(x = num_obs, y = FID)) + 
+  ggplot2::geom_point() +  
+  ggplot2::facet_wrap(~rep) + 
   labs(x = "Number of observations", y = "FID") + 
   theme_bw()
 ```
@@ -281,8 +256,6 @@ tar_load(prior_simulation_manytamia)
 prior_sim_df <- prior_simulation_manytamia |>
   add_rownames(var = "sim_id") |> 
   unnest(cols = simulated_data)
-
-
   
 prior_sim_df |> 
   ggplot(aes(x = num_obs,
@@ -350,10 +323,7 @@ coverage_manytamia |>
   ggplot(aes(y = variable, x = prop_covered)) + 
   geom_point() + 
   coord_cartesian(xlim = c(0, 1))
-
-
 ```
-
 
 model 1, same procedure
 
