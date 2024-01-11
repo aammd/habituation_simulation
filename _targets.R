@@ -469,7 +469,7 @@ list(
     pattern = map(fit_sqrt_fits_noslope),
     iteration = "list"
   ),
-  ### EXperimental!!!!!
+  ### using Stan instead ----
 
   tar_stan_mcmc_rep_summary(
     name = single_indiv,
