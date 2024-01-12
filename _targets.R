@@ -143,6 +143,7 @@ list(
     coverage_manytamia,
     command = calculate_coverage(prior_simulation_manytamia, all_models)
   ),
+  # READ IN DATA  --------------------------------------
   ## Second phase: read in and process the actual design data
   tarchetypes::tar_file_read(design,
                              command = "design.csv",
@@ -155,6 +156,7 @@ list(
                ) |>
                dplyr::mutate(FID = 200)
   ),
+  ### prior simulation with brms on design data -------------
   ## simulate from the prior on the observed data
   tar_target(
     prior_simulation_design,
@@ -496,7 +498,7 @@ list(
       rhat = ~posterior::rhat(.x)
     ),
     deployment = "worker"),
-  ## prior predictive simulation
+  ## prior predictive simulation --------------------
   tar_stan_mcmc_rep_summary(
     name = prior_pred,
     stan_files = c("stan/one_tamia.stan",
@@ -522,14 +524,27 @@ list(
       rhat = ~posterior::rhat(.x)
     ),
     deployment = "worker"),
+  ### validate heirarchical model
+   tar_stan_mcmc_rep_summary(
+    name = cov_hier,
+    stan_files = c("stan/many_tamia_log.stan"),#, "stan/many_tamia_corr.stan"),
+    data = n_tamia_sim_hyper(
+      .max_obs = 25, .n_tamia = 30), # Runs once per rep.
+    batches = 5, # Number of branch targets.
+    reps = 6, # Number of model reps per branch target.
+    chains = 4, # Number of MCMC chains.
+    refresh = 0L,
+    parallel_chains = 4, # How many MCMC chains to run in parallel.
+    iter_warmup = 2e3, # Number of MCMC warmup iterations to run.
+    iter_sampling = 2e3, # Number of MCMC post-warmup iterations to run.
+    summaries = list(
+      ~posterior::quantile2(.x, probs = c(0.025, 0.25, 0.5, 0.75, 0.975)),
+      # We use Gelman-Rubin potential scale reduction factors to
+      # assess convergence:
+      rhat = ~posterior::rhat(.x)
+    ),
+    deployment = "worker"),
   ### log transformation power analysis
-  tar_target(
-   data_var_p,
-    command = n_tamia_simulation_sd_p(
-      num_obs = 0:20, n_tamia = 10,
-      logitM =  3, logitp = 4, sd_logitp = .5,
-      logd = .8, shape = 10)
-  ),
   tar_target(
     data_indiv,
     command = n_tamia_simulation_sd_mpd(

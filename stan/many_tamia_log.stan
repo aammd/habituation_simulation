@@ -47,7 +47,7 @@ model{
   sigma_m ~ exponential(1);
   sigma_p ~ exponential(1);
   sigma_d ~ exponential(1);
-  shape ~ cauchy(0, 5);
+  shape ~ lognormal(2.3, .2);
 }
 generated quantities {
   vector[n] mu;

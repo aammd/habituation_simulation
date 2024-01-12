@@ -42,6 +42,15 @@ We begin by evaluating the simplest case: one individual _Tamia_, observed repea
 
 The curve we finally ended up fitting resembles a classic TYPE II functional response curve, but inverted and scaled to correspond to our system.
 
+This model is an adaptation of the classic Type II functional response, adapted to our study. It describes the FID of a chipmunk in three values:
+
+* $M$, the initial flight initiation distance (proportion of 1000cm)
+* $p$, the proportion of this initial FID which is lost through habituation
+* $d$, the number of exposures to threat required for a chipmunk to move from $M$ to its final FID after habituation.
+
+This is an initial version of the model, which does not contain any effect of threat treatment or any effect of personality.  
+
+
 Here is the full bayesian model, including our expression for the average and all the priors.
 
 $$
@@ -192,7 +201,7 @@ prior_pred |>
 
 This shows that coverage is excellent for all parameters, with the exception of `logd`, which is recovered a little less than 80% of the time at the 95% confidence interval.
 
-### Multiple individuals
+# Multiple individuals
 
 To extend this model to multiple individuals we need to add hyperparameters to it:
 
@@ -216,13 +225,6 @@ d_0 &\sim N(1.5, 0.5)\\
 \end{align}
 $$
 
-This model is an adaptation of the classic Type II functional response, adapted to our study. It describes the FID of a chipmunk in three values:
-
-* $M$, the initial flight initiation distance (proportion of 1000cm)
-* $p$, the proportion of this initial FID which is lost through habituation
-* $d$, the number of exposures to threat required for a chipmunk to move from $M$ to its final FID after habituation.
-
-This is an initial version of the model, which does not contain any effect of threat treatment or any effect of personality.  
 
 
 ## Prior predictive simulations
@@ -246,54 +248,91 @@ prior_pred_data |>
   theme_bw()
 ```
 
-We can understand hyperparameters (i.e. $\sigma_M, \sigma_p, \sigma_d$ and $R$) by simulating and asking if they represent a plausible range of between-tamia variation. Again, we try to cover a range of plausible values while allowing for extreme cases.
+::: .{callout-note}
+$p$ can be understood as the strength of habituation. The higher (more positive), the more of the original FID is lost over time.
+:::
 
 ```{r}
-#| label: fig-prior-hyper
-#| fig-cap: Simulations from the prior predictive distribution for our model of FID (Flight initiation distance), showing the effect of hyperparameters on between-individual differences
-tar_load(prior_simulation_manytamia)
 
-prior_sim_df <- prior_simulation_manytamia |>
-  add_rownames(var = "sim_id") |> 
-  unnest(cols = simulated_data)
-  
-prior_sim_df |> 
-  ggplot(aes(x = num_obs,
-             y = epred, 
-             group = tamia_id)) + 
+
+
+map_df(1:12,
+       ~n_tamia_sim_hyper(
+         .max_obs = 22,
+         .n_tamia = 15)[c("num_obs", "FID", "tamia_id", "mu")] |> 
+         as_tibble(),
+       .id = "sim") |> 
+  ggplot(aes(x = num_obs, y = mu, group = tamia_id))  + 
   geom_line() + 
-  facet_wrap(~draw_id, ncol = 5) + 
-  # coord_cartesian(ylim = c(0, 1000)) + 
-  # geom_hline(yintercept = 1000, lty = 2) +
-  theme_bw()
-
+  facet_wrap(~sim, ncol = 4)
 ```
+
+
+We can understand hyperparameters (i.e. $\sigma_M, \sigma_p, \sigma_d$ and $R$) by simulating and asking if they represent a plausible range of between-tamia variation. Again, we try to cover a range of plausible values while allowing for extreme cases.
 
 ## Proportion of coverage
 
 The above simulations are each datasets which, according to our model, are plausible observations for our experiment. If the same model is fit to the data, we should recover the parameters we used to create it. We fit the model described above to `r nrow(prior_simulation_manytamia)` simulated datasets. Each simulation produced a different datset with distinct parameter values. The model is fit to each, and we report a model as 'successful' if that simulation's true parameter value is above the 2.5th percentile and below the 97.5th (ie within the 95% credible interval).
 
+
+```{r}
+# plot the coverate from the validation of the 
+```
+
+
 ```{r}
 #| layout-ncol: 2
 #| fig-cap: Proportion of coverage for all parameters (left) and for all the population-level parameters (right). That is, the right-hand figure shows only the main effects, shape parameter, and hyperparameters; it excludes the individual values of M, p and d for each individual.
 
-tar_load(coverage_manytamia)
-coverage_manytamia |> 
-  ggplot(aes(y = variable, x = prop_covered)) + 
-  geom_point() + 
-  coord_cartesian(xlim = c(0, 1))
-
-coverage_manytamia |> 
-  filter(!stringr::str_detect(variable, "r_.*")) |> 
-  ggplot(aes(y = variable, x = prop_covered)) + 
-  geom_point() + 
-  coord_cartesian(xlim = c(0, 1))
+tar_load(cov_hier)
+# coverage_manytamia |> 
+#   ggplot(aes(y = variable, x = prop_covered)) + 
+#   geom_point() + 
+#   coord_cartesian(xlim = c(0, 1))
+# 
+# coverage_manytamia |> 
+#   filter(!stringr::str_detect(variable, "r_.*")) |> 
+#   ggplot(aes(y = variable, x = prop_covered)) + 
+#   geom_point() + 
+#   coord_cartesian(xlim = c(0, 1))
 
 ```
 
 ## Design data
 
 let's use the actual design data to fit the model
+
+* simulate on the actual design data -- does this need a new function? probably
+* fit basic model to that as well
+* fit model 1 (with risk) and model 4 (individual differences varying by sex)
+* 
+
+```{r}
+tar_load(design_data)
+
+design_simulation <- design_data |> 
+  group_by(tamia_id) |> 
+  filter(num_obs == max(num_obs)) |> 
+  rowwise() |> 
+  mutate(FID_list = list(
+    n_tamia_simulation_sd_mpd(
+      max_obs = num_obs, n_tamia = 1,
+      logitM = 3, sd_logitM = .5,
+      logitp = 5, sd_logitp = .5,
+      logd = .8, sd_logd = .2,
+      shape =  10)),
+    FID_df = list(as_tibble(FID_list[c("num_obs", "FID", "tamia_id", "mu")]))
+    ) |> 
+  select(-FID_list, -FID) |>
+  rename(tamia_real_id = tamia_id, max_obs = num_obs) |> 
+  unnest(FID_df)
+  
+
+design_simulation |> 
+  ggplot(aes(x = num_obs, y = mu, group = tamia_real_id)) + geom_line()
+
+```
+
 
 ### Prior predictive checks
 
@@ -324,6 +363,9 @@ coverage_manytamia |>
   geom_point() + 
   coord_cartesian(xlim = c(0, 1))
 ```
+
+
+
 
 model 1, same procedure
 
@@ -387,3 +429,19 @@ knitr::kable(nonzero_model4_table)
 ```
 
 In general, the model finds posteriors that are close to 0 for all coefficients. However, there is a surprising bias towards supurious sex-differences in the value of $p$. This is possibly due to the lower sample size of male chipmunks
+
+
+# Transformations
+
+* find the text I had before about 
+
+On the left is the average FID, on the right is observations around this average (note the slightly different scale). note that this variation is much lower than the variation we found in our dataset.  There is also individual variation here, a bit greater than what was found in the real dataset.
+
+I simulated many datasets that looked like this one. For each, I fit a pair of models. One model has individual differences in habituation (i.e. close to the truth); the other model has constant habituation for all individuals. For each dataset, I compared both models using LOO-IC (basically a bayesian AIC). The following figure shows the model comparison output. More negative numbers mean the model WITH variation is winning (the numbers measure how much lower the LOO-IC score is for the constant-habituation model)
+
+These results show the increased power of our approach in comparison to two others: log transformed FID and square-root transformed FID.  I think it is interesting that it seems a square-root model isn't able to detect individual difference, even at small sample size.
+
+Its not that surprising that the nonlinear model fits well, since that is the data-generating model. What's interesting to me is that the square root, and even the log - transformed model have quite weak results.
+
+
+

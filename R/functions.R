@@ -402,6 +402,7 @@ n_tamia_simulation_sd_mpd <- function(
        num_obs = df$num_obs,
        tamia_id = df$tamia_id,
        FID = df$FID,
+       mu = df$mu,
        # special part for stantargets magic power
        .join_data = list(
          logitM = logitM,
@@ -422,6 +423,34 @@ n_tamia_simulation_sd_mpd <- function(
   return(outlist)
 }
 
+
+#' Simulate from hyperparameters
+#'
+#' made this to match the prior specifications in many_tamia_corr
+#'
+#' @param .max_obs
+#' @param .n_tamia
+#'
+#' @return
+#' @export
+#'
+#' @examples
+n_tamia_sim_hyper <- function(.max_obs, .n_tamia){
+  mu_m <- rnorm(1, 1, 1)
+  sd_m <- rexp(1, 1)
+  mu_p <- rnorm(1, 3, .5)
+  sd_p <- rexp(1, 1)
+  mu_d <- rnorm(1, .5, .5)
+  sd_d <- rexp(1, 1)
+  shape <- rlnorm(1, 2.3, .2)
+
+  n_tamia_simulation_sd_mpd(
+    max_obs = .max_obs, n_tamia = .n_tamia,
+    logitM = mu_m, sd_logitM = sd_m,
+    logitp = mu_p, sd_logitp = sd_d,
+    logd   = mu_d, sd_logd   = sd_d,
+    shape =  10)
+}
 
 compare_two_models_loo <- function(model1,
                                    model2,
