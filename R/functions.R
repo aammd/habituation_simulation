@@ -437,20 +437,87 @@ n_tamia_simulation_sd_mpd <- function(
 #' @examples
 n_tamia_sim_hyper <- function(.max_obs, .n_tamia){
   mu_m <- rnorm(1, 1, 1)
-  sd_m <- rexp(1, 1)
+  sigma_m <- rexp(1, 1)
   mu_p <- rnorm(1, 3, .5)
-  sd_p <- rexp(1, 1)
+  sigma_p <- rexp(1, 1)
   mu_d <- rnorm(1, .5, .5)
-  sd_d <- rexp(1, 1)
+  sigma_d <- rexp(1, 1)
   shape <- rlnorm(1, 2.3, .2)
 
-  n_tamia_simulation_sd_mpd(
+  output <- n_tamia_simulation_sd_mpd(
     max_obs = .max_obs, n_tamia = .n_tamia,
-    logitM = mu_m, sd_logitM = sd_m,
-    logitp = mu_p, sd_logitp = sd_d,
-    logd   = mu_d, sd_logd   = sd_d,
-    shape =  10)
+    logitM = mu_m, sd_logitM = sigma_m,
+    logitp = mu_p, sd_logitp = sigma_d,
+    logd   = mu_d, sd_logd   = sigma_d,
+    shape =  shape)
+
+  output$.join_data <- list(
+    mu_m = mu_m,
+    sigma_m = sigma_m,
+    mu_p = mu_p,
+    sigma_p = sigma_p,
+    mu_d = mu_d,
+    sigma_d = sigma_d,
+    shape = shape
+  )
+
+  return(output)
 }
+
+
+simulate_on_design <- function(designdata){
+  mu_m <- rnorm(1, 1, 1)
+  sigma_m <- rexp(1, 1)
+  mu_p <- rnorm(1, 3, .5)
+  sigma_p <- rexp(1, 1)
+  mu_d <- rnorm(1, .5, .5)
+  sigma_d <- rexp(1, 1)
+  shape <- rlnorm(1, 2.3, .2)
+
+  # browser()
+
+  design_sim_df <- designdata |>
+    ## make tamia_id numeric
+    mutate(tamia_id = as.numeric(as.factor(tamia_id))) |>
+    group_by(tamia_id) |>
+    filter(num_obs == max(num_obs)) |>
+    rowwise() |>
+    mutate(FID_list = list(
+      n_tamia_simulation_sd_mpd(
+        max_obs = num_obs,
+        n_tamia = 1,
+        logitM = mu_m, sd_logitM = sigma_m,
+        logitp = mu_p, sd_logitp = sigma_p,
+        logd = mu_d, sd_logd = sigma_d,
+        shape =  shape)),
+      FID_df = list(as_tibble(FID_list[c("num_obs", "FID", "tamia_id", "mu")]))
+    ) |>
+    select(-FID_list, -FID) |>
+    rename(tamia_real_id = tamia_id, max_obs = num_obs) |>
+    tidyr::unnest(FID_df)
+
+  output <- list(
+    n = length(design_sim_df$num_obs),
+    n_tamia = max(design_sim_df$tamia_real_id),
+    num_obs = design_sim_df$num_obs,
+    tamia_id = design_sim_df$tamia_real_id,
+    FID = design_sim_df$FID,
+    mu = design_sim_df$mu
+  )
+
+  output$.join_data <- list(
+    mu_m = mu_m,
+    sigma_m = sigma_m,
+    mu_p = mu_p,
+    sigma_p = sigma_p,
+    mu_d = mu_d,
+    sigma_d = sigma_d,
+    shape = shape
+  )
+
+  return(  output)
+}
+
 
 compare_two_models_loo <- function(model1,
                                    model2,

@@ -52,6 +52,14 @@ model{
   L_Omega ~ lkj_corr_cholesky(2);
 }
 generated quantities {
+  // for stantargets, i need to output parameters that are named the same as the simulation parameters
+  real mu_m = mu_mpd[1];
+  real mu_p = mu_mpd[2];
+  real mu_d = mu_mpd[3];
+  real sigma_m = sigma_mpd[1];
+  real sigma_p = sigma_mpd[2];
+  real sigma_d = sigma_mpd[3];
+
   vector[n] mu;
   vector[n] log_lik;
   vector[n] yrep;

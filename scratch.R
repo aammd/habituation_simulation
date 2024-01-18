@@ -151,10 +151,15 @@ bayesplot::ppc_dens_overlay(many_sp_fit_data$FID,
                             yrep = some_yrep)# +
 coord_cartesian(xlim = c(0, 2.5))
 
-many_tamia_corr <- cmdstanr::cmdstan_model("stan/many_tamia_corr.stan")
 
 one_dataset <- n_tamia_sim_hyper(
       .max_obs = 25, .n_tamia = 30)
 
+one_dataset$.join_data
 
-many_tamia_log$sample(data = one_dataset, parallel_chains = 2, chains = 1)
+many_tamia_corr <- cmdstanr::cmdstan_model("stan/many_tamia_corr.stan")
+many_tamia_corr_post <- many_tamia_corr$sample(data = one_dataset, parallel_chains = 2, chains = 1)
+
+many_tamia_corr_post$summary(variables = c("sigma_mpd", "mu_mpd", "shape"))
+
+

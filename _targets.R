@@ -527,14 +527,14 @@ list(
   ### validate heirarchical model
    tar_stan_mcmc_rep_summary(
     name = cov_hier,
-    stan_files = c("stan/many_tamia_log.stan"),#, "stan/many_tamia_corr.stan"),
+    stan_files = c("stan/many_tamia_log.stan", "stan/many_tamia_corr.stan"),
     data = n_tamia_sim_hyper(
       .max_obs = 25, .n_tamia = 30), # Runs once per rep.
-    batches = 5, # Number of branch targets.
-    reps = 6, # Number of model reps per branch target.
-    chains = 4, # Number of MCMC chains.
+    batches = 4, # Number of branch targets.
+    reps = 5, # Number of model reps per branch target.
+    chains = 2, # Number of MCMC chains.
     refresh = 0L,
-    parallel_chains = 4, # How many MCMC chains to run in parallel.
+    parallel_chains = 3, # How many MCMC chains to run in parallel.
     iter_warmup = 2e3, # Number of MCMC warmup iterations to run.
     iter_sampling = 2e3, # Number of MCMC post-warmup iterations to run.
     summaries = list(
@@ -544,7 +544,8 @@ list(
       rhat = ~posterior::rhat(.x)
     ),
     deployment = "worker"),
-  ### log transformation power analysis
+  ### POWER ANALYSIS SECTION -----------------------------
+  ## One fake dataset ------------------
   tar_target(
     data_indiv,
     command = n_tamia_simulation_sd_mpd(
@@ -571,6 +572,13 @@ list(
       ggplot(aes(x = num_obs, y = FID, group = tamia_id)) +
       geom_point()
   ),
+  ## simulate on design
+  tar_target(
+    design_sim,
+    command = simulate_on_design(design_data)
+  ),
+
+  ## compile stan models
   tar_stan_mcmc(
     name = no_indiv,
     stan_files = "stan/log_linear_no_indiv_effect.stan",

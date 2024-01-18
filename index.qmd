@@ -285,16 +285,16 @@ The above simulations are each datasets which, according to our model, are plaus
 #| fig-cap: Proportion of coverage for all parameters (left) and for all the population-level parameters (right). That is, the right-hand figure shows only the main effects, shape parameter, and hyperparameters; it excludes the individual values of M, p and d for each individual.
 
 tar_load(cov_hier)
-# coverage_manytamia |> 
-#   ggplot(aes(y = variable, x = prop_covered)) + 
-#   geom_point() + 
-#   coord_cartesian(xlim = c(0, 1))
-# 
-# coverage_manytamia |> 
-#   filter(!stringr::str_detect(variable, "r_.*")) |> 
-#   ggplot(aes(y = variable, x = prop_covered)) + 
-#   geom_point() + 
-#   coord_cartesian(xlim = c(0, 1))
+
+
+cov_hier |> 
+  filter(variable %in% c("mu_m", "mu_p", "mu_d", "shape", "sigma_m", "sigma_d", "sigma_p")) |>  
+  group_by(.name, variable) |> 
+  summarize(cov_95 = sum(.join_data > q2.5 & .join_data < q97.5)/n()) |> 
+  ggplot(aes(x = variable, y = cov_95)) + 
+  geom_point() + 
+  facet_wrap(~.name) + 
+  coord_cartesian(ylim = c(0,1))
 
 ```
 
@@ -308,42 +308,19 @@ let's use the actual design data to fit the model
 * 
 
 ```{r}
-tar_load(design_data)
+#| layout-ncol: 2
+#| fig-cap: Simulations from the prior distribution.
+tar_load(design_sim)
 
-design_simulation <- design_data |> 
-  group_by(tamia_id) |> 
-  filter(num_obs == max(num_obs)) |> 
-  rowwise() |> 
-  mutate(FID_list = list(
-    n_tamia_simulation_sd_mpd(
-      max_obs = num_obs, n_tamia = 1,
-      logitM = 3, sd_logitM = .5,
-      logitp = 5, sd_logitp = .5,
-      logd = .8, sd_logd = .2,
-      shape =  10)),
-    FID_df = list(as_tibble(FID_list[c("num_obs", "FID", "tamia_id", "mu")]))
-    ) |> 
-  select(-FID_list, -FID) |>
-  rename(tamia_real_id = tamia_id, max_obs = num_obs) |> 
-  unnest(FID_df)
+design_simulation <- design_sim[c("num_obs", "tamia_id", "FID", "mu")] |> as.data.frame()
   
 
 design_simulation |> 
-  ggplot(aes(x = num_obs, y = mu, group = tamia_real_id)) + geom_line()
+  ggplot(aes(x = num_obs, y = mu, group = tamia_id)) + geom_line()
 
-```
+design_simulation |> 
+  ggplot(aes(x = num_obs, y = FID, group = tamia_id)) + geom_point()
 
-
-### Prior predictive checks
-
-```{r}
-tar_load(prior_simulation_design)
-
-prior_simulation_design |> 
-  tidyr::unnest(simulated_data) |> 
-  ggplot(aes(x = num_obs, y = epred, group = tamia_id)) + 
-  geom_line() + 
-  facet_wrap(~draw_id, ncol = 5)
 ```
 
 fit to many of these and look at posterior coverage
@@ -363,8 +340,6 @@ coverage_manytamia |>
   geom_point() + 
   coord_cartesian(xlim = c(0, 1))
 ```
-
-
 
 
 model 1, same procedure
