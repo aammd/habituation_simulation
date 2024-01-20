@@ -34,7 +34,7 @@ library(targets)
 ```
 
 
-## Which priors are appropriate?
+## 1. Which priors are appropriate?
 
 ### Single-individual model
 
@@ -60,7 +60,7 @@ Here is the full bayesian model, including our expression for the average and al
 $$
 \begin{align}
 \text{FID} &\sim \text{Gamma}(\alpha, \alpha/\mu) \\
-\mu &= M \times 1000 \times \left(1 - \frac{p \times X}{d + X} \right) \\
+\mu &= M \times 1000 \times \left(1 - \frac{p X}{d + X} \right) \\
 \text{logit}(M) &= M_0 \\
 \text{logit}(p) &= p_0 \\
 \text{log}(d)   &= d_0 \\
@@ -71,7 +71,7 @@ d_0 &\sim N(1.5, 0.5)\\
 \end{align}
 $$
 
-### prior simulations
+### Prior simulations
 
 ```{r}
 
@@ -85,7 +85,7 @@ one_tamia_simulation(0:25,
   geom_point()
 ```
 
-### Different parameterizations 
+#### Different parameterizations 
 
 I've chosen to experiment with writing this model on the log scale. 
 This will give us more flexibility later, and may also help the model to fit accurately.
@@ -176,9 +176,12 @@ comp_param |>
   facet_wrap(~.name)
 ```
 
-### Prior predictive distribution
+#### Prior predictive distribution
 
-The above was fit to a model where the observations vary but the _parameters_ all have the same values. TK figure reference. However, to be sure our model works well we should fit it to a prior simulation of the dataset. 
+The above was fit to a model where the observations vary but the _parameters_ all have the same values. 
+However, to be sure our model works well we should fit it to a prior simulation of the dataset. 
+Here, the values of all parameters are sampled from the prior distribution. 
+Then, these values are used to simulate a dataset, the model is fit to it, and we see how often the true value falls within the 95% interval of the resulting posterior.
 
 ```{r}
 tar_load(prior_pred)
@@ -205,7 +208,7 @@ prior_pred |>
 
 This shows that coverage is excellent for all parameters, with the exception of `logd`, which is recovered a little less than 80% of the time at the 95% confidence interval.
 
-# Multiple individuals
+### Multiple individuals
 
 To extend this model to multiple individuals we need to add hyperparameters to it:
 
@@ -231,7 +234,7 @@ $$
 
 
 
-## Prior predictive simulations
+#### Prior predictive simulations
 
 Simulating data from a prior is essential for defining priors that reflect knowledge about a system. Here we have chosen very general priors that cover a wide range of FID responses to threat treatment. This includes many which are biologically implausible, indicating that our prior is not too restrictive. However it excludes many cases that do not match our knowledge of the system: for example, FIDs which increase with exposure, or extremely rapid or slow habituation.
 
@@ -258,8 +261,6 @@ $p$ can be understood as the strength of habituation. The higher (more positive)
 
 ```{r}
 
-
-
 map_df(1:12,
        ~n_tamia_sim_hyper(
          .max_obs = 22,
@@ -274,14 +275,10 @@ map_df(1:12,
 
 We can understand hyperparameters (i.e. $\sigma_M, \sigma_p, \sigma_d$ and $R$) by simulating and asking if they represent a plausible range of between-tamia variation. Again, we try to cover a range of plausible values while allowing for extreme cases.
 
-## Proportion of coverage
+#### Proportion of coverage
 
-The above simulations are each datasets which, according to our model, are plausible observations for our experiment. If the same model is fit to the data, we should recover the parameters we used to create it. We fit the model described above to `r nrow(prior_simulation_manytamia)` simulated datasets. Each simulation produced a different datset with distinct parameter values. The model is fit to each, and we report a model as 'successful' if that simulation's true parameter value is above the 2.5th percentile and below the 97.5th (ie within the 95% credible interval).
-
-
-```{r}
-# plot the coverate from the validation of the 
-```
+I performed the same coverage tests as before, but this time on the hierarchical model for multiple individuals. 
+This demonstrates that we can accurately 
 
 
 ```{r}
@@ -289,7 +286,6 @@ The above simulations are each datasets which, according to our model, are plaus
 #| fig-cap: Proportion of coverage for all parameters (left) and for all the population-level parameters (right). That is, the right-hand figure shows only the main effects, shape parameter, and hyperparameters; it excludes the individual values of M, p and d for each individual.
 
 tar_load(cov_hier)
-
 
 cov_hier |> 
   filter(variable %in% c("mu_m", "mu_p", "mu_d", "shape", "sigma_m", "sigma_d", "sigma_p")) |>  
@@ -302,14 +298,13 @@ cov_hier |>
 
 ```
 
-## Design data
+#### Design data
 
-let's use the actual design data to fit the model
-
-* simulate on the actual design data -- does this need a new function? probably
-* fit basic model to that as well
-* fit model 1 (with risk) and model 4 (individual differences varying by sex)
-* 
+So far, the simulations have used an idealized dataset where all individuals are observed a large number of times. 
+In the following section I assess the model's performance on a data simulation based on the real dataset. 
+In reality, different individuals are not observed the same number of times.
+Observations, in this dataset, have a double impact on the model: they are simultaneously the independent variable and also represent greater power. 
+Therefore its important to find out if a realistic distribution of observations per individual actually results in less power or worse performace.
 
 ```{r}
 #| layout-ncol: 2
@@ -327,7 +322,13 @@ design_simulation |>
 
 ```
 
-fit to many of these and look at posterior coverage
+Fit to many of these and look at posterior coverage
+
+:::{.callout-warning}
+## under construction
+the following validation was done with an earlier version of the process (using brms, not Stan) and needs to be updated. 
+It might change a bit as a result.
+:::
 
 ```{r}
 tar_load(coverage_design)
@@ -407,12 +408,15 @@ tar_load(nonzero_model4_table)
 knitr::kable(nonzero_model4_table)
 ```
 
-In general, the model finds posteriors that are close to 0 for all coefficients. However, there is a surprising bias towards supurious sex-differences in the value of $p$. This is possibly due to the lower sample size of male chipmunks
+In general, the model finds posteriors that are close to 0 for all coefficients. However, there is a surprising bias towards spurious sex-differences in the value of $p$. This is possibly due to the lower sample size of male chipmunks
 
 
 # Transformations
 
-* find the text I had before about 
+```{r}
+tar_load(fig_panel)
+```
+
 
 On the left is the average FID, on the right is observations around this average (note the slightly different scale). note that this variation is much lower than the variation we found in our dataset.  There is also individual variation here, a bit greater than what was found in the real dataset.
 
