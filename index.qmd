@@ -18,6 +18,7 @@ It is important to validate our statistical models before using them to reach co
 2.  **Does the model recover parameters with large datasets?** In models with many parameters, there is always the risk that parameters are difficult to estimate well. We fit a model with a large number of *Tamia* , each observed for many repeat observations, to validate that in this "idea" setting the model works well.
 3.  **Does the model recover parameters in our dataset?** Our field dataset contains unequal numbers of observations for each chipmunk, and field constraints mean that sample size in particular treatment combinations is limited. We simulate observations, while keeping every aspect of our dataset the same (treatments, number of observations per individual, etc). If a model can recover true parameters here, we can be more confident about applying it to our real observations.
 4.  **Can unbalanced categories lead to spurious effect size estimates?** Due to small sample effects, we do not have exactly equal representation in all of our treatment combinations. This is especially important in model 4, where we include sex and several aspects of individual personality in our model (see main text). Importantly, because of male chipmunk behaviour, males have fewer observations per individual than do females. We use simulations to confirm that effects of sex or personality on our results is not caused by the structure of the data.
+5. **What is our power to measure individual variation?**  One of the main purposes of our study is to measure individual variation in habituation. We compare our model with a method popular in the literature to detect these changes. 
 
 
 ```{r setup, include = FALSE}
@@ -32,7 +33,10 @@ library(tidybayes)
 library(targets)
 ```
 
-## Single-individual model
+
+## Which priors are appropriate?
+
+### Single-individual model
 
 We begin by evaluating the simplest case: one individual _Tamia_, observed repeatedly and habituating to a constant stimulus. We model the habituation using the following assumptions:
 
