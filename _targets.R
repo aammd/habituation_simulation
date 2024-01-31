@@ -14,12 +14,10 @@ library(patchwork)
 # library(future.callr)
 # plan(callr)
 
-
-# library(tarchetypes) # Load other packages as needed. # nolint
-
 # Set target options:
 tar_option_set(
-  packages = c("brms", "tibble",
+  packages = c(#"brms",
+               "tibble",
                "tidybayes", "ggplot2",
                "tarchetypes", "dplyr", "patchwork"), # packages that your targets need to run
   format = "rds" # default storage format
@@ -27,7 +25,7 @@ tar_option_set(
 )
 
 # tar_make_clustermq() configuration (okay to leave alone):
-# options(clustermq.scheduler = "multiprocess")
+# options(clustermq.scheduler= "multiprocess")
 
 options("cmdstanr_write_stan_file_dir" = here::here())
 
@@ -82,6 +80,8 @@ list(
              simulate_one_tamia()),
   tar_target(one_sim_plot,
              plot_one_tamia(one_simulation)),
+
+# brms model building -----------------------------------------------------
   ## define the model: formula, prior. Matches what we chose for the paper.
   tar_target(
     model_bf,
@@ -478,16 +478,17 @@ list(
     name = comp_param,
     stan_files = c("stan/one_tamia.stan",
                    "stan/one_tamia_log.stan",
-                   "stan/one_tamia_log_shape.stan"),
+                    "stan/one_tamia_log_shape.stan"
+                   ),
     data = one_tamia_simulation(1:25,
                                 logitM = 3,
                                 logitp = 5,
                                 logd = .8,
                                 shape =  10), # Runs once per rep.
-    batches = 3, # Number of branch targets.
+    batches = 10, # Number of branch targets.
     reps = 2, # Number of model reps per branch target.
     chains = 2, # Number of MCMC chains.
-    refresh = 2000,
+    refresh = 0L,
     parallel_chains = 2, # How many MCMC chains to run in parallel.
     iter_warmup = 2e3, # Number of MCMC warmup iterations to run.
     iter_sampling = 2e3, # Number of MCMC post-warmup iterations to run.
@@ -510,8 +511,8 @@ list(
       logitp = 5, sd_logitp = .5,
       logd = .8, sd_logd = .2,
       shape =  10), # Runs once per rep.
-    batches = 5, # Number of branch targets.
-    reps = 6, # Number of model reps per branch target.
+    batches = 10, # Number of branch targets.
+    reps = 2, # Number of model reps per branch target.
     chains = 4, # Number of MCMC chains.
     refresh = 0L,
     parallel_chains = 4, # How many MCMC chains to run in parallel.
@@ -530,9 +531,9 @@ list(
     stan_files = c("stan/many_tamia_log.stan", "stan/many_tamia_corr.stan"),
     data = n_tamia_sim_hyper(
       .max_obs = 25, .n_tamia = 30), # Runs once per rep.
-    batches = 4, # Number of branch targets.
-    reps = 5, # Number of model reps per branch target.
-    chains = 2, # Number of MCMC chains.
+    batches = 5, # Number of branch targets.
+    reps = 1, # Number of model reps per branch target.
+    chains = 4, # Number of MCMC chains.
     refresh = 0L,
     parallel_chains = 3, # How many MCMC chains to run in parallel.
     iter_warmup = 2e3, # Number of MCMC warmup iterations to run.
@@ -610,6 +611,10 @@ list(
     command = cmdstanr::cmdstan_model(stan_file = "stan/log_linear_with_indiv_effect_ri.stan")
   ),
   ## simulation
+# here I'm running a test to compare a model with and without an individual slope.
+# in every other way the two models are the same.
+# the dataset tamua_sim_df contains the parameters for a data simulation which is different in each row.
+# Everything to the right of an equals sign refers to a column in that spreadsheet
   tarchetypes::tar_map_rep(
     pwr_log,
     command = compare_two_models_loo(
@@ -627,7 +632,7 @@ list(
       shape = shape
       ),
     values = tamia_sim_df,
-    batches = 3,
+    batches = 10,
     reps = 2,
     names = tidyselect::any_of("sim_id")
   ),
@@ -664,7 +669,7 @@ list(
       shape = shape
     ),
     values = tamia_sim_df,
-    batches = 3,
+    batches = 10,
     reps = 2,
     names = tidyselect::any_of("sim_id")
   ),
