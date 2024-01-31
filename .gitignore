@@ -1,8 +1,11 @@
+
+
 # Ignore all
 *
-
 # Unignore all with extensions
 !*.*
+# Unignore all dirs
+!*/
 
 .Rproj.user
 .Rhistory
@@ -13,8 +16,6 @@
 *.DS_Store
 cmdstanr/*
 
-model_*.stan
-model_*.exe
 *.rds
 Methods*.docx
 stan/*.exe

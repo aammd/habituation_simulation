@@ -4,6 +4,78 @@ library(targets)
 
 job::job({targets::tar_make(cov_hier)})
 
+source("R/functions.R")
+
+dlist <- one_tamia_simulation(1:25,
+                              logitM = 3,
+                              logitp = 5,
+                              logd = .8,
+                              shape =  10)[c("n","num_obs", "FID")]
+
+risk_many_tamia_log <- cmdstanr::cmdstan_model("stan/risk_ordinal_many_tamia_log.stan")
+
+tar_load(design_data)
+design_tamia_num <- design_data |>
+  mutate(tamia_id = as.numeric(as.factor(tamia_id)),
+         risk_id = as.numeric(as.factor(Risk))) |>
+  ## VERY important -- make sure they are in sequence
+  arrange(tamia_id) |>
+  glimpse()
+
+design_risk_num <- design_tamia_num |>
+  select(tamia_id, risk_id) |>
+  unique()
+
+dlist <- list(
+  sample_post = 0,
+  n = nrow(design_tamia_num),
+              n_tamia = nrow(design_risk_num),
+              num_obs = design_tamia_num$num_obs,
+              FID = design_tamia_num$FID,
+              tamia_id = design_tamia_num$tamia_id,
+              risk_id = design_risk_num$risk_id)
+
+
+
+risk_sample <- risk_many_tamia_log$sample(
+  data = dlist, chains =1 )
+library(tidybayes)
+
+risk_sample$summary(variables = "b_risk")
+
+risk_sample |>
+  gather_rvars(b_risk[param, trt]) |>
+  arrange(param)
+
+risk_sample |>
+  gather_draws(mu[rownum], ndraws = 1) |>
+  bind_cols(design_tamia_num) |>
+  ggplot(aes(x = num_obs, y = 1/.value, group = tamia_id)) +
+  geom_line() +
+  coord_cartesian(ylim = c(0, 1000)) +
+  facet_wrap(~risk_id)
+
+
+
+
+
+risk_sample |>
+  gather_draws(yrep[rownum], ndraws = 1) |>
+  bind_cols(design_tamia_num) |>
+  ggplot(aes(x = num_obs, y = .value, group = tamia_id)) +
+  geom_line()
+
+
+
+dlist
+one_tamia_log_shape$sample(data =  dlist,
+                           chains = 1, parallel_chains = 1)
+
+one_tamia <- cmdstanr::cmdstan_model("stan/one_tamia.stan")
+one_tamia$sample(data =  dlist,
+                           chains = 1, parallel_chains = 1)
+
+
 
 tar_make(no_indiv_draws_log_linear_no_indiv_effect)
 tar_make(no_indiv_summary_log_linear_no_indiv_effect)

@@ -526,11 +526,11 @@ compare_two_models_loo <- function(model1,
 
   sim_data <-  n_tamia_simulation_sd_mpd(...)
 
-  m1_samples <- model1$sample(data = sim_data, refresh = 0L)
+  m1_samples <- model1$sample(data = sim_data, refresh = 0L, parallel_chains = 2)
 
   m1_loo <- m1_samples$loo()
   # targets::tar_load(some_groups)
-  m2_samples <- model2$sample(data = sim_data, refresh=0L)
+  m2_samples <- model2$sample(data = sim_data, refresh=0L, parallel_chains = 2)
   m2_loo <- m2_samples$loo()
   # simulate_normal(50)
   loolist <- list(m1_loo, m2_loo) |> purrr::set_names(names)

@@ -27,7 +27,6 @@ It is important to validate our statistical models before using them to reach co
 options(tidyverse.quiet = TRUE)
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", tar_simple = TRUE)
 source("R/functions.R")
-library(brms)
 library(tidyverse)
 library(tidybayes)
 library(targets)
