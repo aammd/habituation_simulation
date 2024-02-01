@@ -18,7 +18,7 @@ library(patchwork)
 tar_option_set(
   packages = c(#"brms",
                "tibble",
-               "tidybayes", "ggplot2",
+               "tidybayes", "ggplot2", "purrr",
                "tarchetypes", "dplyr", "patchwork"), # packages that your targets need to run
   format = "rds" # default storage format
   # Set other options as needed.
@@ -80,8 +80,21 @@ list(
              simulate_one_tamia()),
   tar_target(one_sim_plot,
              plot_one_tamia(one_simulation)),
+  # READ IN DATA  --------------------------------------
+  ## Second phase: read in and process the actual design data
+  tarchetypes::tar_file_read(design,
+                             command = "design.csv",
+                             read = readr::read_csv(!!.x)),
+  tar_target(design_data,
+             command = design |>
+               dplyr::rename(
+                 tamia_id = ID,
+                 num_obs = obs_number
+               ) |>
+               dplyr::mutate(FID = 200)
+  ),
 
-# brms model building -----------------------------------------------------
+  # brms model building -----------------------------------------------------
   ## define the model: formula, prior. Matches what we chose for the paper.
   tar_target(
     model_bf,
@@ -143,19 +156,7 @@ list(
     coverage_manytamia,
     command = calculate_coverage(prior_simulation_manytamia, all_models)
   ),
-  # READ IN DATA  --------------------------------------
-  ## Second phase: read in and process the actual design data
-  tarchetypes::tar_file_read(design,
-                             command = "design.csv",
-                             read = readr::read_csv(!!.x)),
-  tar_target(design_data,
-             command = design |>
-               dplyr::rename(
-                 tamia_id = ID,
-                 num_obs = obs_number
-               ) |>
-               dplyr::mutate(FID = 200)
-  ),
+
   ### prior simulation with brms on design data -------------
   ## simulate from the prior on the observed data
   tar_target(
@@ -525,7 +526,7 @@ list(
       rhat = ~posterior::rhat(.x)
     ),
     deployment = "worker"),
-  ### validate heirarchical model
+  ### validate heirarchical model-------------
    tar_stan_mcmc_rep_summary(
     name = cov_hier,
     stan_files = c("stan/many_tamia_log.stan", "stan/many_tamia_corr.stan"),
@@ -545,12 +546,34 @@ list(
       rhat = ~posterior::rhat(.x)
     ),
     deployment = "worker"),
-  ### POWER ANALYSIS SECTION -----------------------------
-  ## One fake dataset ------------------
-  tar_target(
-    data_indiv,
-    command = n_tamia_simulation_sd_mpd(
-      max_obs = 20,
+
+# risk models -------------------------------------------------------------
+tar_target(
+  design_list,
+  make_risk_list(design_data)
+),
+tar_stan_mcmc(
+  name = "prior",
+  stan_files = c("stan/risk_many_tamia_log.stan",
+                 "stan/risk_ordinal_many_tamia_log.stan"),
+  data = list_modify(
+    sample_post = 0,
+    design_list
+  ),
+  # tiny sample number because its a prior
+  chains = 1,
+  iter_warmup = 100,
+  iter_sampling = 100
+
+),
+
+
+### POWER ANALYSIS SECTION -----------------------------
+## One fake dataset ------------------
+tar_target(
+  data_indiv,
+  command = n_tamia_simulation_sd_mpd(
+    max_obs = 20,
       n_tamia = 30,
       logitM =  2, sd_logitM = 1,
       logitp = 4, sd_logitp = 1,
@@ -684,19 +707,19 @@ list(
   ),
   ## compile and compare a model with and without individual parameters
   tar_target(
-    name = one_tamia_log,
-    command = cmdstanr::cmdstan_model(stan_file = "stan/one_tamia_log.stan")
+    name = non_var_nonlin,
+    command = cmdstanr::cmdstan_model(stan_file = "stan/many_tamia_log_sameslope.stan")
   ),
   tar_target(
-    name = many_tamia_log,
+    name = oui_var_nonlin,
     command = cmdstanr::cmdstan_model(stan_file = "stan/many_tamia_log.stan")
   ),
   ## simulation
   tarchetypes::tar_map_rep(
     pwr_nonlin,
     command = compare_two_models_loo(
-      model1 = one_tamia_log,
-      model2 = many_tamia_log,
+      model1 = non_var_nonlin,
+      model2 = oui_var_nonlin,
       names = c("non_var", "oui_var"),
       max_obs = max_obs,
       n_tamia = n_tamia,
@@ -709,7 +732,7 @@ list(
       shape = shape
     ),
     values = tamia_sim_df,
-    batches = 3,
+    batches = 10,
     reps = 2,
     names = tidyselect::any_of("sim_id")
   ),
@@ -752,3 +775,4 @@ list(
 
   tar_quarto(site, path = "index.qmd")
 )
+

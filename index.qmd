@@ -73,7 +73,7 @@ $$
 ### Prior simulations
 
 ```{r}
-
+#| fig-cap: "A simulation of 25 observations of one _Tamia_ individual. Y-axis shows flight initiation distance in cm."
 one_tamia_simulation(0:25,
                      logitM = 3,
                      logitp = 5,
@@ -81,7 +81,9 @@ one_tamia_simulation(0:25,
                      shape =  10)[c("num_obs", "FID")] |> 
   as.data.frame() |> 
   ggplot(aes(x = num_obs, y = FID)) + 
-  geom_point()
+  geom_point() + 
+  labs(x = "Number of observations") + 
+  theme_bw()
 ```
 
 #### Different parameterizations 
@@ -174,6 +176,10 @@ comp_param |>
   geom_point(aes(y = .join_data), col = "red") + 
   facet_wrap(~.name)
 ```
+
+These results show that all three models give very similar inference. 
+For the rest of this project I'm using the log-scale calculation as in `many_tamia_log`, above.
+
 
 #### Prior predictive distribution
 
@@ -329,43 +335,6 @@ the following validation was done with an earlier version of the process (using 
 It might change a bit as a result.
 :::
 
-```{r}
-tar_load(coverage_design)
-
-coverage_design |> 
-  ggplot(aes(y = variable, x = prop_covered)) + 
-  geom_point() + 
-  coord_cartesian(xlim = c(0, 1))
-
-
-coverage_manytamia |> 
-  filter(!stringr::str_detect(variable, "r_.*")) |> 
-  ggplot(aes(y = variable, x = prop_covered)) + 
-  geom_point() + 
-  coord_cartesian(xlim = c(0, 1))
-```
-
-
-model 1, same procedure
-
-```{r}
-tar_load(coverage_model_1)
-
-coverage_model_1 |> 
-  ggplot(aes(y = variable, x = prop_covered)) + 
-  geom_point() + 
-  coord_cartesian(xlim = c(0, 1))
-
-
-coverage_model_1 |> 
-  filter(!stringr::str_detect(variable, "r_.*")) |> 
-  ggplot(aes(y = variable, x = prop_covered)) + 
-  geom_point() + 
-  coord_cartesian(xlim = c(0, 1))
-
-
-```
-
 
 ## Model 4
 
@@ -396,21 +365,27 @@ $$
 The simulation produces chipmunk which vary individually, and which have the same number of observations per individual as the real dataset. We then analyzed this model with Model 4. Since there are no effects of individual-level predictors present in the model (other than Risk), We should find the posterior distributions to be close to 0 for $\beta_c$, $\beta_x$, $\beta_d$ and $\beta_{sex}$
 
 ```{r}
-targets::tar_load(model4_posterior_plot)
-model4_posterior_plot
+# targets::tar_load(model4_posterior_plot)
+# model4_posterior_plot
 
 ```
 
 
 ```{r}
-tar_load(nonzero_model4_table)
-knitr::kable(nonzero_model4_table)
+# tar_load(nonzero_model4_table)
+# knitr::kable(nonzero_model4_table)
 ```
 
 In general, the model finds posteriors that are close to 0 for all coefficients. However, there is a surprising bias towards spurious sex-differences in the value of $p$. This is possibly due to the lower sample size of male chipmunks
 
 
 # Transformations
+
+A common way to work with this kind of data is to transform it. 
+
+here I'm defining habituation in a specific way -- that while individuals might _start_ at different FID, their response to successive exposures to a stimulus is different. That is, there is individual variation in the "slope". 
+
+
 
 ```{r}
 tar_load(fig_panel)

@@ -15,27 +15,28 @@ dlist <- one_tamia_simulation(1:25,
 risk_many_tamia_log <- cmdstanr::cmdstan_model("stan/risk_ordinal_many_tamia_log.stan")
 
 tar_load(design_data)
-design_tamia_num <- design_data |>
-  mutate(tamia_id = as.numeric(as.factor(tamia_id)),
-         risk_id = as.numeric(as.factor(Risk))) |>
-  ## VERY important -- make sure they are in sequence
-  arrange(tamia_id) |>
-  glimpse()
 
-design_risk_num <- design_tamia_num |>
-  select(tamia_id, risk_id) |>
-  unique()
+make_risk_list <- function(dataset){
+  design_tamia_num <- design_data |>
+    mutate(tamia_id = as.numeric(as.factor(tamia_id)),
+           risk_id = as.numeric(as.factor(Risk))) |>
+    ## VERY important -- make sure they are in sequence
+    arrange(tamia_id) |>
+    glimpse()
 
-dlist <- list(
-  sample_post = 0,
-  n = nrow(design_tamia_num),
-              n_tamia = nrow(design_risk_num),
-              num_obs = design_tamia_num$num_obs,
-              FID = design_tamia_num$FID,
-              tamia_id = design_tamia_num$tamia_id,
-              risk_id = design_risk_num$risk_id)
+  design_risk_num <- design_tamia_num |>
+    select(tamia_id, risk_id) |>
+    unique()
 
-
+  dlist <- list(
+    n = nrow(design_tamia_num),
+    n_tamia = nrow(design_risk_num),
+    num_obs = design_tamia_num$num_obs,
+    FID = design_tamia_num$FID,
+    tamia_id = design_tamia_num$tamia_id,
+    risk_id = design_risk_num$risk_id)
+  return(dlist)
+}
 
 risk_sample <- risk_many_tamia_log$sample(
   data = dlist, chains =1 )
@@ -47,13 +48,15 @@ risk_sample |>
   gather_rvars(b_risk[param, trt]) |>
   arrange(param)
 
-risk_sample |>
-  gather_draws(mu[rownum], ndraws = 1) |>
-  bind_cols(design_tamia_num) |>
+prior_draws_risk_ordinal_many_tamia_log |>
+  gather_draws(mu[rowname], ndraws = 5) |>
+  left_join(design_tamia_num |>
+              rownames_to_column() |>
+              mutate(rowname = parse_number(rowname))) |>
   ggplot(aes(x = num_obs, y = 1/.value, group = tamia_id)) +
   geom_line() +
   coord_cartesian(ylim = c(0, 1000)) +
-  facet_wrap(~risk_id)
+  facet_grid(.draw~risk_id)
 
 
 

@@ -632,3 +632,32 @@ plot_loo_table <- function(loo_df,
                ymin = elpd_low, ymax = elpd_hig))  +
     geom_pointrange(position = position_jitter(height = 0, width = .5))
 }
+
+
+#' make a list appropriate for a model that uses risk categories
+#'
+#' its a little tricky because it requires two lists of different lengths.
+#'
+#' @param dataset the design dataset
+#'
+#' @return a list. you might need to add something to it.
+make_risk_list <- function(dataset){
+  design_tamia_num <- dataset |>
+    mutate(tamia_id = as.numeric(as.factor(tamia_id)),
+           risk_id = as.numeric(as.factor(Risk))) |>
+    ## VERY important -- make sure they are in sequence
+    arrange(tamia_id)
+
+  design_risk_num <- design_tamia_num |>
+    select(tamia_id, risk_id) |>
+    unique()
+
+  dlist <- list(
+    n = nrow(design_tamia_num),
+    n_tamia = nrow(design_risk_num),
+    num_obs = design_tamia_num$num_obs,
+    FID = design_tamia_num$FID,
+    tamia_id = design_tamia_num$tamia_id,
+    risk_id = design_risk_num$risk_id)
+  return(dlist)
+}
