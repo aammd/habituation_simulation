@@ -1,5 +1,5 @@
 data{
-  ## sample posterior (1) or prior prediction only (0)?
+  // sample posterior (1) or prior prediction only (0)?
   int<lower=0, upper=1>  sample_post;
   int n;
   int n_tamia;

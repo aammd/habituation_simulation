@@ -629,3 +629,26 @@ make_risk_list <- function(dataset){
     risk_id = design_risk_num$risk_id)
   return(dlist)
 }
+
+#' Plot a prior predictive distribution in Stan
+#'
+#' takes the output of a stan model that was given no data, and plots the prior
+#' distribution together with the dataset. requires the stan posterior and the dataset.
+#'
+#' @return
+#' @export
+#'
+#' @examples
+plot_prior_from_stan <- function(model_post, data_df){
+  model_post |>
+  # use rowname as column name for easy merging later!
+  gather_draws(mu[rowname], ndraws = 5, seed = 42) |>
+  left_join(data_df |>
+              rownames_to_column(var = "rowname") |>
+              mutate(rowname = parse_number(rowname))) |>
+  ggplot(aes(x = num_obs, y = 1/.value, group = tamia_id)) +
+  geom_line() +
+  coord_cartesian(ylim = c(0, 1000)) +
+  facet_grid(.draw~Risk) +
+  labs(y = "average FID", x = "Number of observations")
+}

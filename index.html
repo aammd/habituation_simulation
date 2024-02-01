@@ -94,11 +94,12 @@ div.csl-indent {
 
 </head>
 
-<body class="fullcontent">
+<body>
 
 <div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
-
-<main class="content" id="quarto-document-content">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+</div>
+<main class="content page-columns page-full" id="quarto-document-content">
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
@@ -135,10 +136,10 @@ div.csl-indent {
 <li><strong>What is our power to measure individual variation?</strong> One of the main purposes of our study is to measure individual variation in habituation. We compare our model with a method popular in the literature to detect these changes.</li>
 </ol>
 </section>
-<section id="which-priors-are-appropriate" class="level2">
+<section id="which-priors-are-appropriate" class="level2 page-columns page-full">
 <h2 class="anchored" data-anchor-id="which-priors-are-appropriate">1. Which priors are appropriate?</h2>
-<section id="single-individual-model" class="level3">
-<h3 class="anchored" data-anchor-id="single-individual-model">Single-individual model</h3>
+<section id="single-individual-model-math-notation" class="level3">
+<h3 class="anchored" data-anchor-id="single-individual-model-math-notation">Single-individual model: math notation</h3>
 <p>We begin by evaluating the simplest case: one individual <em>Tamia</em>, observed repeatedly and habituating to a constant stimulus. We model the habituation using the following assumptions:</p>
 <ul>
 <li><em>Tamia</em> begin with a high FID. This value is between 0 and 1000cm, because in our experiment this was the maximum distance at which an experimenter initiated the threat treatment.</li>
@@ -168,8 +169,8 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 \end{align}
 \]</span></p>
 </section>
-<section id="prior-simulations" class="level3">
-<h3 class="anchored" data-anchor-id="prior-simulations">Prior simulations</h3>
+<section id="single-individual-model-prior-simulations" class="level3">
+<h3 class="anchored" data-anchor-id="single-individual-model-prior-simulations">Single individual model: Prior simulations</h3>
 <div class="cell">
 <details>
 <summary>Code</summary>
@@ -195,7 +196,22 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 </div>
 <section id="different-parameterizations" class="level4">
 <h4 class="anchored" data-anchor-id="different-parameterizations">Different parameterizations</h4>
-<p>I’ve chosen to experiment with writing this model on the log scale. This will give us more flexibility later, and may also help the model to fit accurately.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This section is a short side note where I experiment with different ways of writing the model using Stan. It was an important first step before what comes next but it’s not interesting biologically and can be skipped over.</p>
+</div>
+</div>
+<p>Our models need individual random effects on all parameters, and should also be flexible enough to include some individual level predictors. Both of these steps are made possible by placing a link function on all parameters. However, the creation of many nested functions can make a model both harder to read, and harder for the computer to estimate. This happens because when small numbers are multiplied together (or when large numbers are added) there is a risk that some precision will be lost in computer memory. Models with lots of nested functions can also be slower to fit.</p>
+<p>I’ve chosen to experiment with writing this model on the log scale. This has a couple of advantages. First, by writing everything on the log scale, we avoid numerical problems when working with small values. Second, by rewriting the equation using algebra we can find ways to write the functions using Stan’s built-in <a href="https://mc-stan.org/docs/functions-reference/composed-functions.html">composed functions</a> which are stable and efficient.</p>
+<p>Here is the model with link functions:</p>
 <p><span class="math display">\[
 \begin{align}
 \text{FID} &amp;\sim \text{Gamma}(\alpha, \alpha/\mu) \\
@@ -210,44 +226,122 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 \end{align}
 \]</span></p>
 <p>in the model file <code>one_tamia</code>, we use the mathematical model as written:</p>
-<pre><code>  vector[n] mu;
-  real m = inv_logit(logitM);
-  real p = inv_logit(logitp);
-  real d = exp(logd);
-  mu = 1000 * m * (1 - p * num_obs ./ (d + num_obs));
-
-  FID ~ gamma(shape, shape / mu);
-  shape ~ lognormal(2.3, .2);
-  logitM ~ normal(3, .5);
-  logitp ~ normal(5, .5);
-  logd ~ normal(.8, .2);</code></pre>
+<div class="cell" data-file="stan/one_tamia.stan">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>data{</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  int n;</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  vector[n] num_obs;</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  vector[n] FID;</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>parameters{</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  real logitM;</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  real logitp;</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  real logd;</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  real<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span><span class="sc">&gt;</span> shape;</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>model{</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  vector[n] mu;</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  real m <span class="ot">=</span> <span class="fu">inv_logit</span>(logitM);</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  real p <span class="ot">=</span> <span class="fu">inv_logit</span>(logitp);</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  real d <span class="ot">=</span> <span class="fu">exp</span>(logd);</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  mu <span class="ot">=</span> <span class="dv">1000</span> <span class="sc">*</span> m <span class="sc">*</span> (<span class="dv">1</span> <span class="sc">-</span> p <span class="sc">*</span> num_obs .<span class="sc">/</span> (d <span class="sc">+</span> num_obs));</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  FID <span class="sc">~</span> <span class="fu">gamma</span>(shape, shape <span class="sc">/</span> mu);</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  shape <span class="sc">~</span> <span class="fu">lognormal</span>(<span class="fl">2.3</span>, .<span class="dv">2</span>);</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  logitM <span class="sc">~</span> <span class="fu">normal</span>(<span class="dv">3</span>, .<span class="dv">5</span>);</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  logitp <span class="sc">~</span> <span class="fu">normal</span>(<span class="dv">5</span>, .<span class="dv">5</span>);</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  logd <span class="sc">~</span> <span class="fu">normal</span>(.<span class="dv">8</span>, .<span class="dv">2</span>);</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
 <p>in model <code>one_tamia_log</code>, I write the expression for the average on the log scale</p>
-<pre><code>  vector[n] logmu;
-  logmu = - 6.9
-  - log_inv_logit(logitM)
-  - log1m_exp( log_inv_logit(logitp)
-  + ln_nobs
-  - logd
-  - log1p_exp(ln_nobs - logd) );
-
-  FID ~ gamma(shape, shape * exp (logmu));
-  shape ~ lognormal(2.3, .2);
-  logitM ~ normal(3, .5);
-  logitp ~ normal(5, .5);
-  logd ~ normal(.8, .2);</code></pre>
+<div class="cell" data-file="stan/one_tamia_log.stan">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>data{</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  int n;</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  vector[n] num_obs;</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  vector[n] FID;</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>transformed data{</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  vector[n] ln_nobs <span class="ot">=</span> <span class="fu">log</span>(num_obs);</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>parameters{</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  real logitM;</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  real logitp;</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  real logd;</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  real<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span><span class="sc">&gt;</span> shape;</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>model{</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  vector[n] logmu;</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  logmu <span class="ot">=</span> <span class="sc">-</span> <span class="fl">6.9</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log_inv_logit</span>(logitM)</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log1m_exp</span>( <span class="fu">log_inv_logit</span>(logitp)</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>  <span class="sc">+</span> ln_nobs</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> logd</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log1p_exp</span>(ln_nobs <span class="sc">-</span> logd) );</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>  FID <span class="sc">~</span> <span class="fu">gamma</span>(shape, shape <span class="sc">*</span> <span class="fu">exp</span> (logmu));</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>  shape <span class="sc">~</span> <span class="fu">lognormal</span>(<span class="fl">2.3</span>, .<span class="dv">2</span>);</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>  logitM <span class="sc">~</span> <span class="fu">normal</span>(<span class="dv">3</span>, .<span class="dv">5</span>);</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>  logitp <span class="sc">~</span> <span class="fu">normal</span>(<span class="dv">5</span>, .<span class="dv">5</span>);</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>  logd <span class="sc">~</span> <span class="fu">normal</span>(.<span class="dv">8</span>, .<span class="dv">2</span>);</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>generated quantities {</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>  vector[n] mu;</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>  vector[n] log_lik;</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>  vector[n] yrep;</span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>  mu <span class="ot">=</span> <span class="fu">exp</span>(<span class="sc">-</span> <span class="fl">6.9</span></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log_inv_logit</span>(logitM)</span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log1m_exp</span>(<span class="fu">log_inv_logit</span>(logitp)</span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>  <span class="sc">+</span> ln_nobs</span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> (logd)</span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log1p_exp</span>(ln_nobs <span class="sc">-</span> logd)));</span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>n) {</span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a>    log_lik[j] <span class="ot">=</span> <span class="fu">gamma_lpdf</span>(FID[j] <span class="sc">|</span> shape, shape <span class="sc">*</span> mu[j]);</span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>    yrep[j] <span class="ot">=</span> <span class="fu">gamma_rng</span>(shape, shape <span class="sc">*</span> mu[j]);</span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
 <p>in model <code>one_tamia_log_shape</code> I write the model as above, but also put the shape parameter on the log scale:</p>
-<pre><code>  vector[n] logmu;
-  real m = inv_logit(logitM);
-  real p = inv_logit(logitp);
-  real d = exp(logd);
-  logmu = - 6.9
-  - log_inv_logit(logitM) - log1m_exp( log_inv_logit(logitp) + ln_nobs - logd - log1p_exp(ln_nobs - logd) );
-
-  FID ~ gamma(exp(shape), exp (logmu + shape));
-  shape ~ normal(2.3, .2);
-  logitM ~ normal(3, .5);
-  logitp ~ normal(5, .5);
-  logd ~ normal(.8, .2);</code></pre>
+<div class="cell" data-file="stan/one_tamia_log_shape.stan">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>data{</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  int n;</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  vector[n] num_obs;</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  vector[n] FID;</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>transformed data{</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  vector[n] ln_nobs <span class="ot">=</span> <span class="fu">log</span>(num_obs);</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>parameters{</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  real logitM;</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  real logitp;</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  real logd;</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  real shape;</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>model{</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>  vector[n] logmu;</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>  logmu <span class="ot">=</span> <span class="sc">-</span> <span class="fl">6.9</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log_inv_logit</span>(logitM)</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log1m_exp</span>( <span class="fu">log_inv_logit</span>(logitp)</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>  <span class="sc">+</span> ln_nobs</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> logd</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log1p_exp</span>(ln_nobs <span class="sc">-</span> logd) );</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>  FID <span class="sc">~</span> <span class="fu">gamma</span>(<span class="fu">exp</span>(shape), <span class="fu">exp</span> (logmu <span class="sc">+</span> shape));</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>  shape <span class="sc">~</span> <span class="fu">normal</span>(<span class="fl">2.3</span>, .<span class="dv">2</span>);</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>  logitM <span class="sc">~</span> <span class="fu">normal</span>(<span class="dv">3</span>, .<span class="dv">5</span>);</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>  logitp <span class="sc">~</span> <span class="fu">normal</span>(<span class="dv">5</span>, .<span class="dv">5</span>);</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>  logd <span class="sc">~</span> <span class="fu">normal</span>(.<span class="dv">8</span>, .<span class="dv">2</span>);</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
 <p>Simulations on these three models show they are all equally good at recovering parameters</p>
 <div class="cell">
 <details>
@@ -270,14 +364,15 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 <span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>.name)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid" width="672"></p>
+<p><img src="index_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
-<p>These results show that all three models give very similar inference. For the rest of this project I’m using the log-scale calculation as in <code>many_tamia_log</code>, above.</p>
+<p>These results show that all three models give very similar inference. For the rest of this project I’m using the log-scale calculation as in <code>many_tamia_log</code>, because I feel it has a good balance of efficiency and readability.</p>
 </section>
-<section id="prior-predictive-distribution" class="level4">
-<h4 class="anchored" data-anchor-id="prior-predictive-distribution">Prior predictive distribution</h4>
-<p>The above was fit to a model where the observations vary but the <em>parameters</em> all have the same values. However, to be sure our model works well we should fit it to a prior simulation of the dataset. Here, the values of all parameters are sampled from the prior distribution. Then, these values are used to simulate a dataset, the model is fit to it, and we see how often the true value falls within the 95% interval of the resulting posterior.</p>
+</section>
+<section id="single-individual-model-validation" class="level3">
+<h3 class="anchored" data-anchor-id="single-individual-model-validation">Single individual model: validation</h3>
+<p>The above was fit to a model where the observations vary but the <em>parameters</em> all have the same values. However, to be sure our model works well we should fit it to a prior simulation of the dataset. In a prior simulation, the values of all parameters are sampled from their prior distributions. Then, these values are used to simulate a dataset, the model is fit to it, and we see how often the true value falls within the 95% interval of the resulting posterior.</p>
 <div class="cell">
 <details>
 <summary>Code</summary>
@@ -305,15 +400,107 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 <span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; `.groups` argument.</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid" width="672"></p>
+<p><img src="index_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
-<p>This shows that coverage is excellent for all parameters, with the exception of <code>logd</code>, which is recovered a little less than 80% of the time at the 95% confidence interval.</p>
+<p>This shows that coverage is excellent for all parameters, with the exception of <code>logd</code>, which is recovered a little less than 80% of the time at the 95% credible interval.</p>
 </section>
-</section>
-<section id="multiple-individuals" class="level3">
-<h3 class="anchored" data-anchor-id="multiple-individuals">Multiple individuals</h3>
-<p>To extend this model to multiple individuals we need to add hyperparameters to it:</p>
+<section id="multiple-individuals-math" class="level3 page-columns page-full">
+<h3 class="anchored" data-anchor-id="multiple-individuals-math">Multiple individuals: math</h3>
+<p>To extend this model to multiple individuals we need to add hyperparameters to it</p>
+<p>In this model, individual parameters are not correlated with each other. The variance covariance matrix is just the identity matrix, <span class="math inline">\(I\)</span>.</p>
+<p><span class="math display">\[
+\begin{align}
+\text{FID} &amp;\sim \text{Gamma}(\alpha, \alpha/\mu) \\
+\mu &amp;= M \times 1000 \times \left(1 - \frac{p \times X}{d + X} \right) \\
+\text{logit}(M) &amp;= M_0 + \beta_{M, i}\\
+\text{logit}(p) &amp;= p_0 + \beta_{p, i}\\
+\text{log}(d)   &amp;= d_0 + \beta_{d, i}\\
+\begin{bmatrix}  \beta_{M} \  \beta_{p} \  \beta_{d} \end{bmatrix} &amp;\sim N\left(\begin{bmatrix} 0 \ 0 \ 0 \end{bmatrix}, \Sigma\right) \\
+\Sigma &amp;= \text{diag}(\sigma_M, \sigma_p, \sigma_d) \times \text{I} \times \text{diag}(\sigma_M, \sigma_p, \sigma_d) \\
+\sigma_M &amp;\sim \text{Exponential}(4) \\
+\sigma_p &amp;\sim \text{Exponential}(2) \\
+\sigma_d &amp;\sim \text{Exponential}(2) \\
+M_0 &amp;\sim N(0.5, 0.5)\\
+p_0 &amp;\sim N(-1, 0.2)\\
+d_0 &amp;\sim N(1.5, 0.5)\\
+\alpha &amp;\sim \text{Gamma}(6.25, .25)
+\end{align}
+\]</span> We can represent this in Stan by giving each <em>Tamia</em> individual a unique value.</p>
+<div class="cell" data-file="stan/many_tamia_log.stan">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>data{</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  int n;</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  int n_tamia;</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  vector[n] num_obs;</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  vector[n] FID;</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  array[n] int<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">1</span>,upper<span class="ot">=</span>n_tamia<span class="sc">&gt;</span> tamia_id;</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>transformed data{</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  vector[n] ln_nobs <span class="ot">=</span> <span class="fu">log</span>(num_obs);</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>parameters{</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  vector[n_tamia] Z_m;</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  real mu_m;</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>  real<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span><span class="sc">&gt;</span> sigma_m;</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>  vector[n_tamia] Z_p;</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>  real mu_p;</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>  real<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span><span class="sc">&gt;</span> sigma_p;</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>  vector[n_tamia] Z_d;</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>  real mu_d;</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>  real<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span><span class="sc">&gt;</span> sigma_d;</span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>  real<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span><span class="sc">&gt;</span> shape;</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>transformed parameters {</span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>  vector[n_tamia] logitM <span class="ot">=</span> Z_m <span class="sc">*</span> sigma_m <span class="sc">+</span> mu_m;</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>  vector[n_tamia] logitp <span class="ot">=</span> Z_p <span class="sc">*</span> sigma_p <span class="sc">+</span> mu_p;</span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>  vector[n_tamia]   logd <span class="ot">=</span> Z_d <span class="sc">*</span> sigma_d <span class="sc">+</span> mu_d;</span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>model{</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> mean</span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>  vector[n] logmu;</span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>  logmu <span class="ot">=</span> <span class="sc">-</span> <span class="fl">6.9</span></span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log_inv_logit</span>(logitM[tamia_id])</span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log1m_exp</span>( <span class="fu">log_inv_logit</span>(logitp[tamia_id])</span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>  <span class="sc">+</span> ln_nobs</span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> logd[tamia_id]</span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log1p_exp</span>(ln_nobs <span class="sc">-</span> logd[tamia_id]) );</span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> likelihood</span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>  FID <span class="sc">~</span> <span class="fu">gamma</span>(shape, shape <span class="sc">*</span> <span class="fu">exp</span> (logmu));</span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> priors</span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>  Z_m <span class="sc">~</span> <span class="fu">std_normal</span>();</span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>  Z_p <span class="sc">~</span> <span class="fu">std_normal</span>();</span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>  Z_d <span class="sc">~</span> <span class="fu">std_normal</span>();</span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>  mu_m <span class="sc">~</span> <span class="fu">normal</span>(<span class="dv">1</span>, <span class="dv">1</span>);</span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>  mu_p <span class="sc">~</span> <span class="fu">normal</span>(<span class="dv">3</span>, .<span class="dv">5</span>);</span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>  mu_d <span class="sc">~</span> <span class="fu">normal</span>(.<span class="dv">5</span>, .<span class="dv">5</span>);</span>
+<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a>  sigma_m <span class="sc">~</span> <span class="fu">exponential</span>(<span class="dv">1</span>);</span>
+<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a>  sigma_p <span class="sc">~</span> <span class="fu">exponential</span>(<span class="dv">1</span>);</span>
+<span id="cb7-49"><a href="#cb7-49" aria-hidden="true" tabindex="-1"></a>  sigma_d <span class="sc">~</span> <span class="fu">exponential</span>(<span class="dv">1</span>);</span>
+<span id="cb7-50"><a href="#cb7-50" aria-hidden="true" tabindex="-1"></a>  shape <span class="sc">~</span> <span class="fu">lognormal</span>(<span class="fl">2.3</span>, .<span class="dv">2</span>);</span>
+<span id="cb7-51"><a href="#cb7-51" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-52"><a href="#cb7-52" aria-hidden="true" tabindex="-1"></a>generated quantities {</span>
+<span id="cb7-53"><a href="#cb7-53" aria-hidden="true" tabindex="-1"></a>  vector[n] mu;</span>
+<span id="cb7-54"><a href="#cb7-54" aria-hidden="true" tabindex="-1"></a>  vector[n] log_lik;</span>
+<span id="cb7-55"><a href="#cb7-55" aria-hidden="true" tabindex="-1"></a>  vector[n] yrep;</span>
+<span id="cb7-56"><a href="#cb7-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-57"><a href="#cb7-57" aria-hidden="true" tabindex="-1"></a>  mu <span class="ot">=</span> <span class="fu">exp</span>(<span class="sc">-</span> <span class="fl">6.9</span></span>
+<span id="cb7-58"><a href="#cb7-58" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log_inv_logit</span>(logitM[tamia_id])</span>
+<span id="cb7-59"><a href="#cb7-59" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log1m_exp</span>(<span class="fu">log_inv_logit</span>(logitp[tamia_id])</span>
+<span id="cb7-60"><a href="#cb7-60" aria-hidden="true" tabindex="-1"></a>  <span class="sc">+</span> ln_nobs</span>
+<span id="cb7-61"><a href="#cb7-61" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> (logd[tamia_id])</span>
+<span id="cb7-62"><a href="#cb7-62" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log1p_exp</span>(ln_nobs <span class="sc">-</span> logd[tamia_id])));</span>
+<span id="cb7-63"><a href="#cb7-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-64"><a href="#cb7-64" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>n) {</span>
+<span id="cb7-65"><a href="#cb7-65" aria-hidden="true" tabindex="-1"></a>    log_lik[j] <span class="ot">=</span> <span class="fu">gamma_lpdf</span>(FID[j] <span class="sc">|</span> shape, shape <span class="sc">*</span> mu[j]);</span>
+<span id="cb7-66"><a href="#cb7-66" aria-hidden="true" tabindex="-1"></a>    yrep[j] <span class="ot">=</span> <span class="fu">gamma_rng</span>(shape, shape <span class="sc">*</span> mu[j]);</span>
+<span id="cb7-67"><a href="#cb7-67" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb7-68"><a href="#cb7-68" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="page-columns page-full"><p>Sometimes we model correlations between parameters, and it is possible to extend the model in this way also: </p><div class="no-row-height column-margin column-container"><span class="">I was recently talking to Michael Betancourt, who argued pursuasively that adding these correlations into a model is not always justified or useful! Coding them is a considerable effort and doesn’t add much in our use case. We might consider dropping them.</span></div></div>
 <p><span class="math display">\[
 \begin{align}
 \text{FID} &amp;\sim \text{Gamma}(\alpha, \alpha/\mu) \\
@@ -326,30 +513,117 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 \sigma_M &amp;\sim \text{Exponential}(4) \\
 \sigma_p &amp;\sim \text{Exponential}(2) \\
 \sigma_d &amp;\sim \text{Exponential}(2) \\
-\text{R} &amp;\sim \text{LKJ}(2) \\
+\text{R} &amp;\sim \text{LKJ}(2)\\
 M_0 &amp;\sim N(0.5, 0.5)\\
 p_0 &amp;\sim N(-1, 0.2)\\
 d_0 &amp;\sim N(1.5, 0.5)\\
 \alpha &amp;\sim \text{Gamma}(6.25, .25)
 \end{align}
 \]</span></p>
-<section id="prior-predictive-simulations" class="level4">
-<h4 class="anchored" data-anchor-id="prior-predictive-simulations">Prior predictive simulations</h4>
+<div class="cell" data-file="stan/many_tamia_corr.stan">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>data{</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  int n;</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  int n_tamia;</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  vector[n] num_obs;</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  vector[n] FID;</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  array[n] int<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">1</span>,upper<span class="ot">=</span>n_tamia<span class="sc">&gt;</span> tamia_id;</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>transformed data{</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>  vector[n] ln_nobs <span class="ot">=</span> <span class="fu">log</span>(num_obs);</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>parameters{</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>  matrix[n_tamia, <span class="dv">3</span>] Z;</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>  cholesky_factor_corr[<span class="dv">3</span>] L_Omega;</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> vector[n_tamia] Z_m;</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>  row_vector[<span class="dv">3</span>] mu_mpd;</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>  vector<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span><span class="sc">&gt;</span>[<span class="dv">3</span>] sigma_mpd;</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> vector[n_tamia] Z_p;</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> real mu_p;</span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> real<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span><span class="sc">&gt;</span> sigma_p;</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> vector[n_tamia] Z_d;</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> real mu_d;</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> real<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span><span class="sc">&gt;</span> sigma_d;</span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>  real<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span><span class="sc">&gt;</span> shape;</span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>transformed parameters {</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>  matrix[n_tamia, <span class="dv">3</span>] MPD;</span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>  MPD <span class="ot">=</span> Z <span class="sc">*</span> <span class="fu">diag_pre_multiply</span>(sigma_mpd, L_Omega);</span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> or just copy ar1_multilevel and create vectors? what im<span class="st">' doing here might not even be possible</span></span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a><span class="st">  vector[n_tamia] logitM = mu_mpd[1] + MPD[,1];</span></span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a><span class="st">  vector[n_tamia] logitp = mu_mpd[2] + MPD[,2];</span></span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a><span class="st">  vector[n_tamia] logd = mu_mpd[3] + MPD[,3];</span></span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a><span class="st">}</span></span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a><span class="st">model{</span></span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a><span class="st">  // mean</span></span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a><span class="st">  vector[n] logmu;</span></span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a><span class="st">  logmu = - 6.9</span></span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a><span class="st">  - log_inv_logit(logitM[tamia_id])</span></span>
+<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a><span class="st">  - log1m_exp( log_inv_logit(logitp[tamia_id])</span></span>
+<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a><span class="st">  + ln_nobs</span></span>
+<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a><span class="st">  - logd[tamia_id]</span></span>
+<span id="cb8-42"><a href="#cb8-42" aria-hidden="true" tabindex="-1"></a><span class="st">  - log1p_exp(ln_nobs - logd[tamia_id]) );</span></span>
+<span id="cb8-43"><a href="#cb8-43" aria-hidden="true" tabindex="-1"></a><span class="st">  // likelihood</span></span>
+<span id="cb8-44"><a href="#cb8-44" aria-hidden="true" tabindex="-1"></a><span class="st">  FID ~ gamma(shape, shape * exp (logmu));</span></span>
+<span id="cb8-45"><a href="#cb8-45" aria-hidden="true" tabindex="-1"></a><span class="st">  // priors</span></span>
+<span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a><span class="st">  to_vector(Z) ~ std_normal();</span></span>
+<span id="cb8-47"><a href="#cb8-47" aria-hidden="true" tabindex="-1"></a><span class="st">  mu_mpd[1] ~ normal(1, 1);</span></span>
+<span id="cb8-48"><a href="#cb8-48" aria-hidden="true" tabindex="-1"></a><span class="st">  mu_mpd[2] ~ normal(3, .5);</span></span>
+<span id="cb8-49"><a href="#cb8-49" aria-hidden="true" tabindex="-1"></a><span class="st">  mu_mpd[3] ~ normal(.5, .5);</span></span>
+<span id="cb8-50"><a href="#cb8-50" aria-hidden="true" tabindex="-1"></a><span class="st">  sigma_mpd ~ exponential(1);</span></span>
+<span id="cb8-51"><a href="#cb8-51" aria-hidden="true" tabindex="-1"></a><span class="st">  shape ~ lognormal(2.3, .2);</span></span>
+<span id="cb8-52"><a href="#cb8-52" aria-hidden="true" tabindex="-1"></a><span class="st">  L_Omega ~ lkj_corr_cholesky(2);</span></span>
+<span id="cb8-53"><a href="#cb8-53" aria-hidden="true" tabindex="-1"></a><span class="st">}</span></span>
+<span id="cb8-54"><a href="#cb8-54" aria-hidden="true" tabindex="-1"></a><span class="st">generated quantities {</span></span>
+<span id="cb8-55"><a href="#cb8-55" aria-hidden="true" tabindex="-1"></a><span class="st">  // for stantargets, i need to output parameters that are named the same as the simulation parameters</span></span>
+<span id="cb8-56"><a href="#cb8-56" aria-hidden="true" tabindex="-1"></a><span class="st">  real mu_m = mu_mpd[1];</span></span>
+<span id="cb8-57"><a href="#cb8-57" aria-hidden="true" tabindex="-1"></a><span class="st">  real mu_p = mu_mpd[2];</span></span>
+<span id="cb8-58"><a href="#cb8-58" aria-hidden="true" tabindex="-1"></a><span class="st">  real mu_d = mu_mpd[3];</span></span>
+<span id="cb8-59"><a href="#cb8-59" aria-hidden="true" tabindex="-1"></a><span class="st">  real sigma_m = sigma_mpd[1];</span></span>
+<span id="cb8-60"><a href="#cb8-60" aria-hidden="true" tabindex="-1"></a><span class="st">  real sigma_p = sigma_mpd[2];</span></span>
+<span id="cb8-61"><a href="#cb8-61" aria-hidden="true" tabindex="-1"></a><span class="st">  real sigma_d = sigma_mpd[3];</span></span>
+<span id="cb8-62"><a href="#cb8-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-63"><a href="#cb8-63" aria-hidden="true" tabindex="-1"></a><span class="st">  vector[n] mu;</span></span>
+<span id="cb8-64"><a href="#cb8-64" aria-hidden="true" tabindex="-1"></a><span class="st">  vector[n] log_lik;</span></span>
+<span id="cb8-65"><a href="#cb8-65" aria-hidden="true" tabindex="-1"></a><span class="st">  vector[n] yrep;</span></span>
+<span id="cb8-66"><a href="#cb8-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-67"><a href="#cb8-67" aria-hidden="true" tabindex="-1"></a><span class="st">  mu = exp(</span></span>
+<span id="cb8-68"><a href="#cb8-68" aria-hidden="true" tabindex="-1"></a><span class="st">    - 6.9</span></span>
+<span id="cb8-69"><a href="#cb8-69" aria-hidden="true" tabindex="-1"></a><span class="st">    - log_inv_logit(logitM[tamia_id])</span></span>
+<span id="cb8-70"><a href="#cb8-70" aria-hidden="true" tabindex="-1"></a><span class="st">    - log1m_exp(</span></span>
+<span id="cb8-71"><a href="#cb8-71" aria-hidden="true" tabindex="-1"></a><span class="st">      log_inv_logit(logitp[tamia_id])</span></span>
+<span id="cb8-72"><a href="#cb8-72" aria-hidden="true" tabindex="-1"></a><span class="st">      + ln_nobs</span></span>
+<span id="cb8-73"><a href="#cb8-73" aria-hidden="true" tabindex="-1"></a><span class="st">      - logd[tamia_id]</span></span>
+<span id="cb8-74"><a href="#cb8-74" aria-hidden="true" tabindex="-1"></a><span class="st">      - log1p_exp(ln_nobs - logd[tamia_id])</span></span>
+<span id="cb8-75"><a href="#cb8-75" aria-hidden="true" tabindex="-1"></a><span class="st">      ));</span></span>
+<span id="cb8-76"><a href="#cb8-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-77"><a href="#cb8-77" aria-hidden="true" tabindex="-1"></a><span class="st">      for (j in 1:n) {</span></span>
+<span id="cb8-78"><a href="#cb8-78" aria-hidden="true" tabindex="-1"></a><span class="st">        log_lik[j] = gamma_lpdf(FID[j] | shape, shape * mu[j]);</span></span>
+<span id="cb8-79"><a href="#cb8-79" aria-hidden="true" tabindex="-1"></a><span class="st">        yrep[j] = gamma_rng(shape, shape * mu[j]);</span></span>
+<span id="cb8-80"><a href="#cb8-80" aria-hidden="true" tabindex="-1"></a><span class="st">      }</span></span>
+<span id="cb8-81"><a href="#cb8-81" aria-hidden="true" tabindex="-1"></a><span class="st">}</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="multiple-individuals-prior-predictive-simulations" class="level3">
+<h3 class="anchored" data-anchor-id="multiple-individuals-prior-predictive-simulations">Multiple individuals: prior predictive simulations</h3>
 <p>Simulating data from a prior is essential for defining priors that reflect knowledge about a system. Here we have chosen very general priors that cover a wide range of FID responses to threat treatment. This includes many which are biologically implausible, indicating that our prior is not too restrictive. However it excludes many cases that do not match our knowledge of the system: for example, FIDs which increase with exposure, or extremely rapid or slow habituation.</p>
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(prior_pred_data)</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>prior_pred_data <span class="sc">|&gt;</span> </span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map_depth</span>(<span class="dv">2</span>, <span class="sc">~</span>.x[<span class="fu">c</span>(<span class="st">"num_obs"</span>, <span class="st">"FID"</span>)]) <span class="sc">|&gt;</span> </span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">flatten</span>() <span class="sc">|&gt;</span> </span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map_df</span>(as_tibble, <span class="at">.id =</span> <span class="st">"rep"</span>) <span class="sc">|&gt;</span></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> FID)) <span class="sc">+</span> </span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_point</span>() <span class="sc">+</span>  </span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">facet_wrap</span>(<span class="sc">~</span>rep) <span class="sc">+</span> </span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Number of observations"</span>, <span class="at">y =</span> <span class="st">"FID"</span>) <span class="sc">+</span> </span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(prior_pred_data)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>prior_pred_data <span class="sc">|&gt;</span> </span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map_depth</span>(<span class="dv">2</span>, <span class="sc">~</span>.x[<span class="fu">c</span>(<span class="st">"num_obs"</span>, <span class="st">"FID"</span>)]) <span class="sc">|&gt;</span> </span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">flatten</span>() <span class="sc">|&gt;</span> </span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map_df</span>(as_tibble, <span class="at">.id =</span> <span class="st">"rep"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> FID)) <span class="sc">+</span> </span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_point</span>() <span class="sc">+</span>  </span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">facet_wrap</span>(<span class="sc">~</span>rep) <span class="sc">+</span> </span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Number of observations"</span>, <span class="at">y =</span> <span class="st">"FID"</span>) <span class="sc">+</span> </span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 <div id="fig-prior-pred" class="quarto-figure quarto-figure-center anchored">
@@ -366,48 +640,48 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="fu">map_df</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>,</span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>       <span class="sc">~</span><span class="fu">n_tamia_sim_hyper</span>(</span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>         <span class="at">.max_obs =</span> <span class="dv">22</span>,</span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>         <span class="at">.n_tamia =</span> <span class="dv">15</span>)[<span class="fu">c</span>(<span class="st">"num_obs"</span>, <span class="st">"FID"</span>, <span class="st">"tamia_id"</span>, <span class="st">"mu"</span>)] <span class="sc">|&gt;</span> </span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>         <span class="fu">as_tibble</span>(),</span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>       <span class="at">.id =</span> <span class="st">"sim"</span>) <span class="sc">|&gt;</span> </span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> mu, <span class="at">group =</span> tamia_id))  <span class="sc">+</span> </span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span> </span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>sim, <span class="at">ncol =</span> <span class="dv">4</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="fu">map_df</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>,</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>       <span class="sc">~</span><span class="fu">n_tamia_sim_hyper</span>(</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>         <span class="at">.max_obs =</span> <span class="dv">22</span>,</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>         <span class="at">.n_tamia =</span> <span class="dv">15</span>)[<span class="fu">c</span>(<span class="st">"num_obs"</span>, <span class="st">"FID"</span>, <span class="st">"tamia_id"</span>, <span class="st">"mu"</span>)] <span class="sc">|&gt;</span> </span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>         <span class="fu">as_tibble</span>(),</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>       <span class="at">.id =</span> <span class="st">"sim"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> mu, <span class="at">group =</span> tamia_id))  <span class="sc">+</span> </span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span> </span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>sim, <span class="at">ncol =</span> <span class="dv">4</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid" width="672"></p>
+<p><img src="index_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 <p>We can understand hyperparameters (i.e.&nbsp;<span class="math inline">\(\sigma_M, \sigma_p, \sigma_d\)</span> and <span class="math inline">\(R\)</span>) by simulating and asking if they represent a plausible range of between-tamia variation. Again, we try to cover a range of plausible values while allowing for extreme cases.</p>
 </section>
-<section id="proportion-of-coverage" class="level4">
-<h4 class="anchored" data-anchor-id="proportion-of-coverage">Proportion of coverage</h4>
-<p>I performed the same coverage tests as before, but this time on the hierarchical model for multiple individuals. This demonstrates that we can accurately</p>
+<section id="multiple-individuals-validation" class="level3">
+<h3 class="anchored" data-anchor-id="multiple-individuals-validation">Multiple individuals: validation</h3>
+<p>I performed the same coverage tests as before, but this time on the hierarchical model for multiple individuals. This demonstrates that we can accurately recover parameters for this model.</p>
 <div>
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(cov_hier)</span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>cov_hier <span class="sc">|&gt;</span> </span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(variable <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"mu_m"</span>, <span class="st">"mu_p"</span>, <span class="st">"mu_d"</span>, <span class="st">"shape"</span>, <span class="st">"sigma_m"</span>, <span class="st">"sigma_d"</span>, <span class="st">"sigma_p"</span>)) <span class="sc">|&gt;</span>  </span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(.name, variable) <span class="sc">|&gt;</span> </span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(<span class="at">cov_95 =</span> <span class="fu">sum</span>(.join_data <span class="sc">&gt;</span> q2<span class="fl">.5</span> <span class="sc">&amp;</span> .join_data <span class="sc">&lt;</span> q97<span class="fl">.5</span>)<span class="sc">/</span><span class="fu">n</span>()) <span class="sc">|&gt;</span> </span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> variable, <span class="at">y =</span> cov_95)) <span class="sc">+</span> </span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
-<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>.name) <span class="sc">+</span> </span>
-<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">1</span>))</span>
-<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; `summarise()` has grouped output by '.name'. You can override using the</span></span>
-<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; `.groups` argument.</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(cov_hier)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>cov_hier <span class="sc">|&gt;</span> </span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(variable <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"mu_m"</span>, <span class="st">"mu_p"</span>, <span class="st">"mu_d"</span>, <span class="st">"shape"</span>, <span class="st">"sigma_m"</span>, <span class="st">"sigma_d"</span>, <span class="st">"sigma_p"</span>)) <span class="sc">|&gt;</span>  </span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(.name, variable) <span class="sc">|&gt;</span> </span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(<span class="at">cov_95 =</span> <span class="fu">sum</span>(.join_data <span class="sc">&gt;</span> q2<span class="fl">.5</span> <span class="sc">&amp;</span> .join_data <span class="sc">&lt;</span> q97<span class="fl">.5</span>)<span class="sc">/</span><span class="fu">n</span>()) <span class="sc">|&gt;</span> </span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> variable, <span class="at">y =</span> cov_95)) <span class="sc">+</span> </span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>.name) <span class="sc">+</span> </span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">1</span>))</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; `summarise()` has grouped output by '.name'. You can override using the</span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; `.groups` argument.</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="index_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="index_files/figure-html/cov_hier-1.png" class="img-fluid figure-img" width="672"></p>
 <figcaption class="figure-caption">Proportion of coverage for all parameters (left) and for all the population-level parameters (right). That is, the right-hand figure shows only the main effects, shape parameter, and hyperparameters; it excludes the individual values of M, p and d for each individual.</figcaption>
 </figure>
 </div>
@@ -416,62 +690,280 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 </div>
 </div>
 </section>
-<section id="prior-predictive-checks-and" class="level4">
-<h4 class="anchored" data-anchor-id="prior-predictive-checks-and">Prior predictive checks and</h4>
+<section id="risk-math-stan" class="level3">
+<h3 class="anchored" data-anchor-id="risk-math-stan">Risk: math &amp; Stan</h3>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Warning
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>under construction</strong> I haven’t written the math notation for these models yet!</p>
+</div>
+</div>
+<p>One of the advantages of a nonlinear model for FID is that we can explicitly model how all three parameters should vary in response to treatment. There are many ways to do this. Most straightforward is to allow each risk treatment to have a separate value of <span class="math inline">\(M\)</span>, <span class="math inline">\(p\)</span> and <span class="math inline">\(d\)</span>. (AKA a “fixed effect” model):</p>
+<div class="cell" data-file="stan/risk_many_tamia_log.stan">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>data{</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> sample <span class="fu">posterior</span> (<span class="dv">1</span>) or prior prediction <span class="fu">only</span> (<span class="dv">0</span>)?</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  int<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span>, upper<span class="ot">=</span><span class="dv">1</span><span class="sc">&gt;</span>  sample_post;</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  int n;</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  int n_tamia;</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  vector[n] num_obs;</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  vector[n] FID;</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>  array[n] int<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">1</span>,upper<span class="ot">=</span>n_tamia<span class="sc">&gt;</span> tamia_id;</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> which risk treatment is each tamia <span class="cf">in</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>  array[n_tamia] int<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">1</span>,upper<span class="ot">=</span><span class="dv">3</span><span class="sc">&gt;</span> risk_id;</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>transformed data{</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> log num_obs <span class="cf">for</span> convenience later</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>  vector[n] ln_nobs <span class="ot">=</span> <span class="fu">log</span>(num_obs);</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>parameters{</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> random effects <span class="cf">for</span> personality</span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>  vector[n_tamia] Z_m;</span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>  real mu_m;</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>  real<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span><span class="sc">&gt;</span> sigma_m;</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>  vector[n_tamia] Z_p;</span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>  real mu_p;</span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>  real<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span><span class="sc">&gt;</span> sigma_p;</span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>  vector[n_tamia] Z_d;</span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>  real mu_d;</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>  real<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span><span class="sc">&gt;</span> sigma_d;</span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> the effects of risk on the AVERAGE of each parameter</span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> each element of the array corresponds to <span class="dv">3</span> risk treatments</span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>  array[<span class="dv">3</span>] vector[<span class="dv">3</span>] risk_avg;</span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> Shape parameter</span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>  real<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span><span class="sc">&gt;</span> shape;</span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>transformed parameters {</span>
+<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>  vector[n_tamia] logitM <span class="ot">=</span> Z_m <span class="sc">*</span> sigma_m <span class="sc">+</span> risk_avg[<span class="dv">1</span>][risk_id];</span>
+<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>  vector[n_tamia] logitp <span class="ot">=</span> Z_p <span class="sc">*</span> sigma_p <span class="sc">+</span> risk_avg[<span class="dv">2</span>][risk_id];</span>
+<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a>  vector[n_tamia]   logd <span class="ot">=</span> Z_d <span class="sc">*</span> sigma_d <span class="sc">+</span> risk_avg[<span class="dv">3</span>][risk_id];</span>
+<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a>model{</span>
+<span id="cb12-39"><a href="#cb12-39" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> mean</span>
+<span id="cb12-40"><a href="#cb12-40" aria-hidden="true" tabindex="-1"></a>  vector[n] logmu;</span>
+<span id="cb12-41"><a href="#cb12-41" aria-hidden="true" tabindex="-1"></a>  logmu <span class="ot">=</span> <span class="sc">-</span> <span class="fl">6.9</span></span>
+<span id="cb12-42"><a href="#cb12-42" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log_inv_logit</span>(logitM[tamia_id])</span>
+<span id="cb12-43"><a href="#cb12-43" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log1m_exp</span>( <span class="fu">log_inv_logit</span>(logitp[tamia_id])</span>
+<span id="cb12-44"><a href="#cb12-44" aria-hidden="true" tabindex="-1"></a>  <span class="sc">+</span> ln_nobs</span>
+<span id="cb12-45"><a href="#cb12-45" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> logd[tamia_id]</span>
+<span id="cb12-46"><a href="#cb12-46" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log1p_exp</span>(ln_nobs <span class="sc">-</span> logd[tamia_id]) );</span>
+<span id="cb12-47"><a href="#cb12-47" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> likelihood</span>
+<span id="cb12-48"><a href="#cb12-48" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (sample_post <span class="sc">==</span><span class="dv">1</span>){</span>
+<span id="cb12-49"><a href="#cb12-49" aria-hidden="true" tabindex="-1"></a>    FID <span class="sc">~</span> <span class="fu">gamma</span>(shape, shape <span class="sc">*</span> <span class="fu">exp</span> (logmu));</span>
+<span id="cb12-50"><a href="#cb12-50" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb12-51"><a href="#cb12-51" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> priors</span>
+<span id="cb12-52"><a href="#cb12-52" aria-hidden="true" tabindex="-1"></a>  Z_m <span class="sc">~</span> <span class="fu">std_normal</span>();</span>
+<span id="cb12-53"><a href="#cb12-53" aria-hidden="true" tabindex="-1"></a>  Z_p <span class="sc">~</span> <span class="fu">std_normal</span>();</span>
+<span id="cb12-54"><a href="#cb12-54" aria-hidden="true" tabindex="-1"></a>  Z_d <span class="sc">~</span> <span class="fu">std_normal</span>();</span>
+<span id="cb12-55"><a href="#cb12-55" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> priors on constant terms <span class="ot">=</span> priors on averages</span>
+<span id="cb12-56"><a href="#cb12-56" aria-hidden="true" tabindex="-1"></a>  risk_avg[<span class="dv">1</span>] <span class="sc">~</span> <span class="fu">normal</span>(<span class="dv">1</span>, <span class="dv">1</span>);</span>
+<span id="cb12-57"><a href="#cb12-57" aria-hidden="true" tabindex="-1"></a>  risk_avg[<span class="dv">2</span>] <span class="sc">~</span> <span class="fu">normal</span>(<span class="dv">3</span>, .<span class="dv">5</span>);</span>
+<span id="cb12-58"><a href="#cb12-58" aria-hidden="true" tabindex="-1"></a>  risk_avg[<span class="dv">3</span>] <span class="sc">~</span> <span class="fu">normal</span>(.<span class="dv">5</span>, .<span class="dv">5</span>);</span>
+<span id="cb12-59"><a href="#cb12-59" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> hierarchical variances parameters</span>
+<span id="cb12-60"><a href="#cb12-60" aria-hidden="true" tabindex="-1"></a>  sigma_m <span class="sc">~</span> <span class="fu">exponential</span>(<span class="dv">1</span>);</span>
+<span id="cb12-61"><a href="#cb12-61" aria-hidden="true" tabindex="-1"></a>  sigma_p <span class="sc">~</span> <span class="fu">exponential</span>(<span class="dv">1</span>);</span>
+<span id="cb12-62"><a href="#cb12-62" aria-hidden="true" tabindex="-1"></a>  sigma_d <span class="sc">~</span> <span class="fu">exponential</span>(<span class="dv">1</span>);</span>
+<span id="cb12-63"><a href="#cb12-63" aria-hidden="true" tabindex="-1"></a>  shape <span class="sc">~</span> <span class="fu">lognormal</span>(<span class="fl">2.3</span>, .<span class="dv">2</span>);</span>
+<span id="cb12-64"><a href="#cb12-64" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb12-65"><a href="#cb12-65" aria-hidden="true" tabindex="-1"></a>generated quantities {</span>
+<span id="cb12-66"><a href="#cb12-66" aria-hidden="true" tabindex="-1"></a>  vector[n] mu;</span>
+<span id="cb12-67"><a href="#cb12-67" aria-hidden="true" tabindex="-1"></a>  vector[n] log_lik;</span>
+<span id="cb12-68"><a href="#cb12-68" aria-hidden="true" tabindex="-1"></a>  vector[n] yrep;</span>
+<span id="cb12-69"><a href="#cb12-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-70"><a href="#cb12-70" aria-hidden="true" tabindex="-1"></a>  mu <span class="ot">=</span> <span class="fu">exp</span>(<span class="sc">-</span> <span class="fl">6.9</span></span>
+<span id="cb12-71"><a href="#cb12-71" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log_inv_logit</span>(logitM[tamia_id])</span>
+<span id="cb12-72"><a href="#cb12-72" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log1m_exp</span>(<span class="fu">log_inv_logit</span>(logitp[tamia_id])</span>
+<span id="cb12-73"><a href="#cb12-73" aria-hidden="true" tabindex="-1"></a>  <span class="sc">+</span> ln_nobs</span>
+<span id="cb12-74"><a href="#cb12-74" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> (logd[tamia_id])</span>
+<span id="cb12-75"><a href="#cb12-75" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log1p_exp</span>(ln_nobs <span class="sc">-</span> logd[tamia_id])));</span>
+<span id="cb12-76"><a href="#cb12-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-77"><a href="#cb12-77" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>n) {</span>
+<span id="cb12-78"><a href="#cb12-78" aria-hidden="true" tabindex="-1"></a>    log_lik[j] <span class="ot">=</span> <span class="fu">gamma_lpdf</span>(FID[j] <span class="sc">|</span> shape, shape <span class="sc">*</span> mu[j]);</span>
+<span id="cb12-79"><a href="#cb12-79" aria-hidden="true" tabindex="-1"></a>    yrep[j] <span class="ot">=</span> <span class="fu">gamma_rng</span>(shape, shape <span class="sc">*</span> mu[j]);</span>
+<span id="cb12-80"><a href="#cb12-80" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb12-81"><a href="#cb12-81" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(design_data)</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(prior_draws_risk_ordinal_many_tamia_log)</span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>prior_draws_risk_ordinal_many_tamia_log <span class="sc">|&gt;</span></span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># use rowname as column name for easy merging later!</span></span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gather_draws</span>(mu[rowname], <span class="at">ndraws =</span> <span class="dv">5</span>, <span class="at">seed =</span> <span class="dv">42</span>) <span class="sc">|&gt;</span></span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(design_data <span class="sc">|&gt;</span></span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>              <span class="fu">rownames_to_column</span>(<span class="at">var =</span> <span class="st">"rowname"</span>) <span class="sc">|&gt;</span></span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>              <span class="fu">mutate</span>(<span class="at">rowname =</span> <span class="fu">parse_number</span>(rowname))) <span class="sc">|&gt;</span></span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> <span class="dv">1</span><span class="sc">/</span>.value, <span class="at">group =</span> tamia_id)) <span class="sc">+</span></span>
-<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span></span>
-<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1000</span>)) <span class="sc">+</span></span>
-<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_grid</span>(.draw<span class="sc">~</span>Risk)</span>
-<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Joining with `by = join_by(rowname)`</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(design_data)</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(prior_draws_risk_many_tamia_log)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_prior_from_stan</span>(prior_draws_risk_many_tamia_log,</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>                     design_data)</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Joining with `by = join_by(rowname)`</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid" width="672"></p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="index_files/figure-html/prior_pred_stan_cat-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption class="figure-caption">Five simulations from the prior predictive distribution of a model of risk. This model allows the average of each parameter to vary by treatment and uses ordinal contrasts.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>Another possibility is to model the effect of this factor using contrasts. Ordinal contrasts are particularly interesting, because they seem to correspond to specific hypotheses about how the perceived amount of risk should affect habituation:</p>
+<div class="cell" data-file="stan/risk_ordinal_many_tamia_log.stan">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>data{</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>   <span class="sc">/</span><span class="er">/</span> sample <span class="fu">posterior</span> (<span class="dv">1</span>) or prior prediction <span class="fu">only</span> (<span class="dv">0</span>)?</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  int<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span>, upper<span class="ot">=</span><span class="dv">1</span><span class="sc">&gt;</span> sample_post;</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  int n;</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  int n_tamia;</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  vector[n] num_obs;</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  vector[n] FID;</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  array[n] int<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">1</span>,upper<span class="ot">=</span>n_tamia<span class="sc">&gt;</span> tamia_id;</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> which risk treatment is each tamia <span class="cf">in</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>  array[n_tamia] int<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">1</span>,upper<span class="ot">=</span><span class="dv">3</span><span class="sc">&gt;</span> risk_id;</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>transformed data{</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> log num_obs <span class="cf">for</span> convenience later</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>  vector[n] ln_nobs <span class="ot">=</span> <span class="fu">log</span>(num_obs);</span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> define ordinal contrast matrix</span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>  matrix[<span class="dv">3</span>, <span class="dv">3</span>] contr <span class="ot">=</span> [</span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>    [<span class="dv">1</span>, <span class="sc">-</span><span class="fl">0.707106781186548</span>,     <span class="fl">0.408248290463863</span>],</span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>    [<span class="dv">1</span>, <span class="sc">-</span><span class="fl">7.85046229341888e-17</span>, <span class="sc">-</span><span class="fl">0.816496580927726</span>],</span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>    [<span class="dv">1</span>,  <span class="fl">0.707106781186547</span>,     <span class="fl">0.408248290463863</span>]</span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a>    ];</span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>parameters{</span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> random effects <span class="cf">for</span> personality</span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a>  vector[n_tamia] Z_m;</span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a>  real mu_m;</span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a>  real<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span><span class="sc">&gt;</span> sigma_m;</span>
+<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a>  vector[n_tamia] Z_p;</span>
+<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a>  real mu_p;</span>
+<span id="cb14-29"><a href="#cb14-29" aria-hidden="true" tabindex="-1"></a>  real<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span><span class="sc">&gt;</span> sigma_p;</span>
+<span id="cb14-30"><a href="#cb14-30" aria-hidden="true" tabindex="-1"></a>  vector[n_tamia] Z_d;</span>
+<span id="cb14-31"><a href="#cb14-31" aria-hidden="true" tabindex="-1"></a>  real mu_d;</span>
+<span id="cb14-32"><a href="#cb14-32" aria-hidden="true" tabindex="-1"></a>  real<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span><span class="sc">&gt;</span> sigma_d;</span>
+<span id="cb14-33"><a href="#cb14-33" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> the effects of risk on the AVERAGE of each parameter</span>
+<span id="cb14-34"><a href="#cb14-34" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> each element of the array corresponds to <span class="dv">3</span> risk treatments</span>
+<span id="cb14-35"><a href="#cb14-35" aria-hidden="true" tabindex="-1"></a>  array[<span class="dv">3</span>] vector[<span class="dv">3</span>] b_risk;</span>
+<span id="cb14-36"><a href="#cb14-36" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> Shape parameter</span>
+<span id="cb14-37"><a href="#cb14-37" aria-hidden="true" tabindex="-1"></a>  real<span class="sc">&lt;</span>lower<span class="ot">=</span><span class="dv">0</span><span class="sc">&gt;</span> shape;</span>
+<span id="cb14-38"><a href="#cb14-38" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb14-39"><a href="#cb14-39" aria-hidden="true" tabindex="-1"></a>transformed parameters {</span>
+<span id="cb14-40"><a href="#cb14-40" aria-hidden="true" tabindex="-1"></a>  array[<span class="dv">3</span>] vector[<span class="dv">3</span>] risk_avg;</span>
+<span id="cb14-41"><a href="#cb14-41" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (k <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>){</span>
+<span id="cb14-42"><a href="#cb14-42" aria-hidden="true" tabindex="-1"></a>    <span class="sc">/</span><span class="er">/</span> contrast matrix <span class="sc">--</span> matrix multiplication</span>
+<span id="cb14-43"><a href="#cb14-43" aria-hidden="true" tabindex="-1"></a>    risk_avg[k] <span class="ot">=</span> contr <span class="sc">*</span> b_risk[k];</span>
+<span id="cb14-44"><a href="#cb14-44" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb14-45"><a href="#cb14-45" aria-hidden="true" tabindex="-1"></a>  vector[n_tamia] logitM <span class="ot">=</span> Z_m <span class="sc">*</span> sigma_m <span class="sc">+</span> risk_avg[<span class="dv">1</span>][risk_id];</span>
+<span id="cb14-46"><a href="#cb14-46" aria-hidden="true" tabindex="-1"></a>  vector[n_tamia] logitp <span class="ot">=</span> Z_p <span class="sc">*</span> sigma_p <span class="sc">+</span> risk_avg[<span class="dv">2</span>][risk_id];</span>
+<span id="cb14-47"><a href="#cb14-47" aria-hidden="true" tabindex="-1"></a>  vector[n_tamia]   logd <span class="ot">=</span> Z_d <span class="sc">*</span> sigma_d <span class="sc">+</span> risk_avg[<span class="dv">3</span>][risk_id];</span>
+<span id="cb14-48"><a href="#cb14-48" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb14-49"><a href="#cb14-49" aria-hidden="true" tabindex="-1"></a>model{</span>
+<span id="cb14-50"><a href="#cb14-50" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> mean</span>
+<span id="cb14-51"><a href="#cb14-51" aria-hidden="true" tabindex="-1"></a>  vector[n] logmu;</span>
+<span id="cb14-52"><a href="#cb14-52" aria-hidden="true" tabindex="-1"></a>  logmu <span class="ot">=</span> <span class="sc">-</span> <span class="fl">6.9</span></span>
+<span id="cb14-53"><a href="#cb14-53" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log_inv_logit</span>(logitM[tamia_id])</span>
+<span id="cb14-54"><a href="#cb14-54" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log1m_exp</span>( <span class="fu">log_inv_logit</span>(logitp[tamia_id])</span>
+<span id="cb14-55"><a href="#cb14-55" aria-hidden="true" tabindex="-1"></a>  <span class="sc">+</span> ln_nobs</span>
+<span id="cb14-56"><a href="#cb14-56" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> logd[tamia_id]</span>
+<span id="cb14-57"><a href="#cb14-57" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log1p_exp</span>(ln_nobs <span class="sc">-</span> logd[tamia_id]) );</span>
+<span id="cb14-58"><a href="#cb14-58" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> likelihood</span>
+<span id="cb14-59"><a href="#cb14-59" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (sample_post <span class="sc">==</span> <span class="dv">1</span>){</span>
+<span id="cb14-60"><a href="#cb14-60" aria-hidden="true" tabindex="-1"></a>    FID <span class="sc">~</span> <span class="fu">gamma</span>(shape, shape <span class="sc">*</span> <span class="fu">exp</span> (logmu));</span>
+<span id="cb14-61"><a href="#cb14-61" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb14-62"><a href="#cb14-62" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> priors</span>
+<span id="cb14-63"><a href="#cb14-63" aria-hidden="true" tabindex="-1"></a>  Z_m <span class="sc">~</span> <span class="fu">std_normal</span>();</span>
+<span id="cb14-64"><a href="#cb14-64" aria-hidden="true" tabindex="-1"></a>  Z_p <span class="sc">~</span> <span class="fu">std_normal</span>();</span>
+<span id="cb14-65"><a href="#cb14-65" aria-hidden="true" tabindex="-1"></a>  Z_d <span class="sc">~</span> <span class="fu">std_normal</span>();</span>
+<span id="cb14-66"><a href="#cb14-66" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> priors on constant terms <span class="ot">=</span> priors on averages</span>
+<span id="cb14-67"><a href="#cb14-67" aria-hidden="true" tabindex="-1"></a>  b_risk[<span class="dv">1</span>][<span class="dv">1</span>] <span class="sc">~</span> <span class="fu">normal</span>(<span class="dv">1</span>, <span class="dv">1</span>);</span>
+<span id="cb14-68"><a href="#cb14-68" aria-hidden="true" tabindex="-1"></a>  b_risk[<span class="dv">2</span>][<span class="dv">1</span>] <span class="sc">~</span> <span class="fu">normal</span>(<span class="dv">3</span>, .<span class="dv">5</span>);</span>
+<span id="cb14-69"><a href="#cb14-69" aria-hidden="true" tabindex="-1"></a>  b_risk[<span class="dv">3</span>][<span class="dv">1</span>] <span class="sc">~</span> <span class="fu">normal</span>(.<span class="dv">5</span>, .<span class="dv">5</span>);</span>
+<span id="cb14-70"><a href="#cb14-70" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> nonlinear effects <span class="sc">:</span> tight priors to give some skepticism</span>
+<span id="cb14-71"><a href="#cb14-71" aria-hidden="true" tabindex="-1"></a>  b_risk[<span class="dv">1</span>][<span class="dv">2</span><span class="sc">:</span><span class="dv">3</span>] <span class="sc">~</span> <span class="fu">normal</span>(<span class="dv">0</span>, .<span class="dv">5</span>);</span>
+<span id="cb14-72"><a href="#cb14-72" aria-hidden="true" tabindex="-1"></a>  b_risk[<span class="dv">2</span>][<span class="dv">2</span><span class="sc">:</span><span class="dv">3</span>] <span class="sc">~</span> <span class="fu">normal</span>(<span class="dv">0</span>, .<span class="dv">5</span>);</span>
+<span id="cb14-73"><a href="#cb14-73" aria-hidden="true" tabindex="-1"></a>  b_risk[<span class="dv">3</span>][<span class="dv">2</span><span class="sc">:</span><span class="dv">3</span>] <span class="sc">~</span> <span class="fu">normal</span>(<span class="dv">0</span>, .<span class="dv">5</span>);</span>
+<span id="cb14-74"><a href="#cb14-74" aria-hidden="true" tabindex="-1"></a>  <span class="sc">/</span><span class="er">/</span> hierarchical variances parameters</span>
+<span id="cb14-75"><a href="#cb14-75" aria-hidden="true" tabindex="-1"></a>  sigma_m <span class="sc">~</span> <span class="fu">exponential</span>(<span class="dv">1</span>);</span>
+<span id="cb14-76"><a href="#cb14-76" aria-hidden="true" tabindex="-1"></a>  sigma_p <span class="sc">~</span> <span class="fu">exponential</span>(<span class="dv">1</span>);</span>
+<span id="cb14-77"><a href="#cb14-77" aria-hidden="true" tabindex="-1"></a>  sigma_d <span class="sc">~</span> <span class="fu">exponential</span>(<span class="dv">1</span>);</span>
+<span id="cb14-78"><a href="#cb14-78" aria-hidden="true" tabindex="-1"></a>  shape <span class="sc">~</span> <span class="fu">lognormal</span>(<span class="fl">2.3</span>, .<span class="dv">2</span>);</span>
+<span id="cb14-79"><a href="#cb14-79" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb14-80"><a href="#cb14-80" aria-hidden="true" tabindex="-1"></a>generated quantities {</span>
+<span id="cb14-81"><a href="#cb14-81" aria-hidden="true" tabindex="-1"></a>  vector[n] mu;</span>
+<span id="cb14-82"><a href="#cb14-82" aria-hidden="true" tabindex="-1"></a>  vector[n] log_lik;</span>
+<span id="cb14-83"><a href="#cb14-83" aria-hidden="true" tabindex="-1"></a>  vector[n] yrep;</span>
+<span id="cb14-84"><a href="#cb14-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-85"><a href="#cb14-85" aria-hidden="true" tabindex="-1"></a>  mu <span class="ot">=</span> <span class="fu">exp</span>(<span class="sc">-</span> <span class="fl">6.9</span></span>
+<span id="cb14-86"><a href="#cb14-86" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log_inv_logit</span>(logitM[tamia_id])</span>
+<span id="cb14-87"><a href="#cb14-87" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log1m_exp</span>(<span class="fu">log_inv_logit</span>(logitp[tamia_id])</span>
+<span id="cb14-88"><a href="#cb14-88" aria-hidden="true" tabindex="-1"></a>  <span class="sc">+</span> ln_nobs</span>
+<span id="cb14-89"><a href="#cb14-89" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> (logd[tamia_id])</span>
+<span id="cb14-90"><a href="#cb14-90" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span> <span class="fu">log1p_exp</span>(ln_nobs <span class="sc">-</span> logd[tamia_id])));</span>
+<span id="cb14-91"><a href="#cb14-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-92"><a href="#cb14-92" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>n) {</span>
+<span id="cb14-93"><a href="#cb14-93" aria-hidden="true" tabindex="-1"></a>    log_lik[j] <span class="ot">=</span> <span class="fu">gamma_lpdf</span>(FID[j] <span class="sc">|</span> shape, shape <span class="sc">*</span> mu[j]);</span>
+<span id="cb14-94"><a href="#cb14-94" aria-hidden="true" tabindex="-1"></a>    yrep[j] <span class="ot">=</span> <span class="fu">gamma_rng</span>(shape, shape <span class="sc">*</span> mu[j]);</span>
+<span id="cb14-95"><a href="#cb14-95" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb14-96"><a href="#cb14-96" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(design_data)</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(prior_draws_risk_ordinal_many_tamia_log)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_prior_from_stan</span>(prior_draws_risk_ordinal_many_tamia_log,</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>                     design_data)</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Joining with `by = join_by(rowname)`</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="index_files/figure-html/prior_pred_stan_ord-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption class="figure-caption">Five simulations from the prior predictive distribution of a model of risk. This model allows the average of each parameter to vary by treatment and uses ordinal contrasts.</figcaption>
+</figure>
+</div>
 </div>
 </div>
 </section>
-<section id="design-data" class="level4">
-<h4 class="anchored" data-anchor-id="design-data">Design data</h4>
+</section>
+<section id="design-data" class="level2">
+<h2 class="anchored" data-anchor-id="design-data">Design data</h2>
 <p>So far, the simulations have used an idealized dataset where all individuals are observed a large number of times. In the following section I assess the model’s performance on a data simulation based on the real dataset. In reality, different individuals are not observed the same number of times. Observations, in this dataset, have a double impact on the model: they are simultaneously the independent variable and also represent greater power. Therefore its important to find out if a realistic distribution of observations per individual actually results in less power or worse performace.</p>
 <div>
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(design_sim)</span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>design_simulation <span class="ot">&lt;-</span> design_sim[<span class="fu">c</span>(<span class="st">"num_obs"</span>, <span class="st">"tamia_id"</span>, <span class="st">"FID"</span>, <span class="st">"mu"</span>)] <span class="sc">|&gt;</span> <span class="fu">as.data.frame</span>()</span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>design_simulation <span class="sc">|&gt;</span> </span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> mu, <span class="at">group =</span> tamia_id)) <span class="sc">+</span> <span class="fu">geom_line</span>()</span>
-<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>design_simulation <span class="sc">|&gt;</span> </span>
-<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> FID, <span class="at">group =</span> tamia_id)) <span class="sc">+</span> <span class="fu">geom_point</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(design_sim)</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>design_simulation <span class="ot">&lt;-</span> design_sim[<span class="fu">c</span>(<span class="st">"num_obs"</span>, <span class="st">"tamia_id"</span>, <span class="st">"FID"</span>, <span class="st">"mu"</span>)] <span class="sc">|&gt;</span> <span class="fu">as.data.frame</span>()</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>design_simulation <span class="sc">|&gt;</span> </span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> mu, <span class="at">group =</span> tamia_id)) <span class="sc">+</span> <span class="fu">geom_line</span>()</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>design_simulation <span class="sc">|&gt;</span> </span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> FID, <span class="at">group =</span> tamia_id)) <span class="sc">+</span> <span class="fu">geom_point</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="index_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Simulations from the prior distribution.</figcaption>
+<p><img src="index_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption class="figure-caption">Simulations from the prior distribution based on the true dataset.</figcaption>
 </figure>
 </div>
 </div>
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="index_files/figure-html/unnamed-chunk-8-2.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Simulations from the prior distribution.</figcaption>
+<p><img src="index_files/figure-html/unnamed-chunk-13-2.png" class="img-fluid figure-img" width="672"></p>
+<figcaption class="figure-caption">Simulations from the prior distribution based on the true dataset.</figcaption>
 </figure>
 </div>
 </div>
@@ -489,14 +981,25 @@ under construction
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>the following validation was done with an earlier version of the process (using brms, not Stan) and needs to be updated. It might change a bit as a result.</p>
+<p>I performed simulations using brms and showed that the design of Catherine’s experiment allows parameters to be recovered very well. I have yet to redo this with the Stan models. It might change a bit as a result.</p>
 </div>
 </div>
 </section>
-</section>
-</section>
-<section id="model-4" class="level2">
-<h2 class="anchored" data-anchor-id="model-4">Model 4</h2>
+<section id="model-4-many-predictors" class="level2">
+<h2 class="anchored" data-anchor-id="model-4-many-predictors">Model 4: many predictors</h2>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Warning
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>I’m not sure to what extent this is still required or interesting! The models directly above (i.e.&nbsp;using Risk as a factor) are already a good step towards this.</p>
+</div>
+</div>
 <p>In model 4, we attempt to explain individual differences in the parameters <span class="math inline">\(M\)</span>, <span class="math inline">\(p\)</span> and <span class="math inline">\(d\)</span> by adding individual-level predictor variables to our model. These are sex, number of previous captures, Docility, and Explorativeness. However, such effects might be difficult to detect in our experiment, as this represents more parameters to estimate. This is especially important for sex: male chipmunks are less likely to remain in the study area, and therefore are less likely to be observed frequently. This results in less opportunity to observe their habituation. It might also result in a biased estimate of differences between the sexes.</p>
 <p>To investigate the possibility of spurious effects of individual-level predictors, we simulated data using Model 1 above. This model does not have any effects of the four predictors above. We then fit a model which contains all the predictor variables.</p>
 <p><span class="math display">\[
@@ -522,39 +1025,419 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># targets::tar_load(model4_posterior_plot)</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="co"># model4_posterior_plot</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># targets::tar_load(model4_posterior_plot)</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="co"># model4_posterior_plot</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># tar_load(nonzero_model4_table)</span></span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="co"># knitr::kable(nonzero_model4_table)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># tar_load(nonzero_model4_table)</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="co"># knitr::kable(nonzero_model4_table)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <p>In general, the model finds posteriors that are close to 0 for all coefficients. However, there is a surprising bias towards spurious sex-differences in the value of <span class="math inline">\(p\)</span>. This is possibly due to the lower sample size of male chipmunks</p>
 </section>
 <section id="transformations" class="level1">
 <h1>Transformations</h1>
-<p>A common way to work with this kind of data is to transform it.</p>
-<p>here I’m defining habituation in a specific way – that while individuals might <em>start</em> at different FID, their response to successive exposures to a stimulus is different. That is, there is individual variation in the “slope”.</p>
+<p>A common way to work with this kind of data is to transform it, and then to use a mixed-model approach. We want to test the power of these models to discover individual variation, and compare it to our proposed model for FID.</p>
+<p>Which model is better at detecting individual variation in habituation? Here I’m defining habituation in a specific way – that while individuals might <em>start</em> at different FID, their response to successive exposures to a stimulus is different. That is, there is individual variation in the “slope”. I consider that a model shows evidence for individual variation in habituation when an information criterion (LOO-IC in this case) prefers a model with individual slopes over one where all models have the same slope.</p>
+<p>In math, the code for a transformed model looks like this. the function <span class="math inline">\(g()\)</span> could be anything; in our test we use <span class="math inline">\(g(x) = \sqrt{x}\)</span> and <span class="math inline">\(g(x) = \ln(x)\)</span></p>
 <p><span class="math display">\[
 \begin{align}
 g(\text{FID}_i) &amp;\sim \text{Normal}(\mu_i, \sigma)\\
 \mu_i &amp;= \beta_{0, \text{indiv}[i]} + \beta_1\times(\text{exposure})
 \end{align}
-\]</span> Which is compared to a model where slopes vary for each individual</p>
+\]</span></p>
+<p>Which is compared to a model where slopes <strong>vary</strong> for each individual</p>
 <p><span class="math display">\[
 \begin{align}
 g(\text{FID}_i) &amp;\sim \text{Normal}(\mu_i, \sigma)\\
 \mu_i &amp;= \beta_{0, \text{indiv}[i]} + \beta_{1, \text{indiv}[i]}\times(\text{exposure})
 \end{align}
 \]</span></p>
+<section id="stan-code" class="level2">
+<h2 class="anchored" data-anchor-id="stan-code">Stan code</h2>
+<section id="log-transformed-response" class="level4">
+<h4 class="anchored" data-anchor-id="log-transformed-response">Log-transformed response</h4>
+<p>A model with constant slope</p>
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(fig_panel)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(non_var_log)</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>non_var_log</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; data{</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   int n;</span></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   int n_tamia;</span></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] num_obs;</span></span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] FID;</span></span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   array[n] int&lt;lower=1, upper=n_tamia&gt; tamia_id;</span></span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; transformed data{</span></span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] FID_log;</span></span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   FID_log = log(FID);</span></span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; parameters{</span></span>
+<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real habit;</span></span>
+<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real mu_starting;</span></span>
+<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real&lt;lower=0&gt; sigma_starting;</span></span>
+<span id="cb19-18"><a href="#cb19-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real&lt;lower=0&gt; sigma;</span></span>
+<span id="cb19-19"><a href="#cb19-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] zs;</span></span>
+<span id="cb19-20"><a href="#cb19-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb19-21"><a href="#cb19-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; transformed parameters{</span></span>
+<span id="cb19-22"><a href="#cb19-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // each tamia starts from a different point</span></span>
+<span id="cb19-23"><a href="#cb19-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] starting_FID;</span></span>
+<span id="cb19-24"><a href="#cb19-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   starting_FID = zs*sigma_starting + mu_starting;</span></span>
+<span id="cb19-25"><a href="#cb19-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb19-26"><a href="#cb19-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; model{</span></span>
+<span id="cb19-27"><a href="#cb19-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // average starting, sd of starting point, z-scores</span></span>
+<span id="cb19-28"><a href="#cb19-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   mu_starting ~ normal(6, 1);</span></span>
+<span id="cb19-29"><a href="#cb19-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   sigma_starting ~ exponential(1);</span></span>
+<span id="cb19-30"><a href="#cb19-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   zs ~ std_normal();</span></span>
+<span id="cb19-31"><a href="#cb19-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // log FID is normal</span></span>
+<span id="cb19-32"><a href="#cb19-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   FID_log ~ normal(starting_FID[tamia_id] + habit*num_obs, sigma);</span></span>
+<span id="cb19-33"><a href="#cb19-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   sigma ~ exponential(2);</span></span>
+<span id="cb19-34"><a href="#cb19-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   habit ~ normal(-1, .5);</span></span>
+<span id="cb19-35"><a href="#cb19-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb19-36"><a href="#cb19-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; generated quantities{</span></span>
+<span id="cb19-37"><a href="#cb19-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // calculate average</span></span>
+<span id="cb19-38"><a href="#cb19-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] ybar;</span></span>
+<span id="cb19-39"><a href="#cb19-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   ybar= starting_FID[tamia_id] + habit.* num_obs;</span></span>
+<span id="cb19-40"><a href="#cb19-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // log likelihood and yrep</span></span>
+<span id="cb19-41"><a href="#cb19-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] log_lik;</span></span>
+<span id="cb19-42"><a href="#cb19-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] yrep;</span></span>
+<span id="cb19-43"><a href="#cb19-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   for(i in 1:n){</span></span>
+<span id="cb19-44"><a href="#cb19-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     yrep[i] = exp(normal_rng(ybar[i], sigma));</span></span>
+<span id="cb19-45"><a href="#cb19-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     log_lik[i] = normal_lpdf(FID_log[i] | ybar[i], sigma);</span></span>
+<span id="cb19-46"><a href="#cb19-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   }</span></span>
+<span id="cb19-47"><a href="#cb19-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p>A model with individual slopes</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(oui_var_log)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>oui_var_log</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; data{</span></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   int n;</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   int n_tamia;</span></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] num_obs;</span></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] FID;</span></span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   array[n] int&lt;lower=1, upper=n_tamia&gt; tamia_id;</span></span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; transformed data{</span></span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] FID_log;</span></span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   FID_log = log(FID);</span></span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; parameters{</span></span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real mu_starting;</span></span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real&lt;lower=0&gt; sigma_starting;</span></span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] zs;</span></span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real&lt;lower=0&gt; sigma_hab;</span></span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real&lt;lower=0&gt; mu_hab;</span></span>
+<span id="cb20-20"><a href="#cb20-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] zh;</span></span>
+<span id="cb20-21"><a href="#cb20-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real&lt;lower=0&gt; sigma;</span></span>
+<span id="cb20-22"><a href="#cb20-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb20-23"><a href="#cb20-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; transformed parameters {</span></span>
+<span id="cb20-24"><a href="#cb20-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // each tamia starts at a different point</span></span>
+<span id="cb20-25"><a href="#cb20-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] starting_FID;</span></span>
+<span id="cb20-26"><a href="#cb20-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   starting_FID = zs*sigma_starting + mu_starting;</span></span>
+<span id="cb20-27"><a href="#cb20-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // each tamia changes at a different rate</span></span>
+<span id="cb20-28"><a href="#cb20-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] habit;</span></span>
+<span id="cb20-29"><a href="#cb20-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   habit = zh*sigma_hab + mu_hab;</span></span>
+<span id="cb20-30"><a href="#cb20-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb20-31"><a href="#cb20-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; model{</span></span>
+<span id="cb20-32"><a href="#cb20-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // starting FID priors</span></span>
+<span id="cb20-33"><a href="#cb20-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   mu_starting ~ normal(6, 1);</span></span>
+<span id="cb20-34"><a href="#cb20-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   sigma_starting ~ exponential(1);</span></span>
+<span id="cb20-35"><a href="#cb20-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   zs ~ std_normal();</span></span>
+<span id="cb20-36"><a href="#cb20-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // habituation priors</span></span>
+<span id="cb20-37"><a href="#cb20-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   mu_hab ~ normal(-1, .5);</span></span>
+<span id="cb20-38"><a href="#cb20-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   sigma_hab ~ exponential(1);</span></span>
+<span id="cb20-39"><a href="#cb20-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   zh ~ std_normal();</span></span>
+<span id="cb20-40"><a href="#cb20-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // log FID is normal</span></span>
+<span id="cb20-41"><a href="#cb20-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   FID_log ~ normal(starting_FID[tamia_id] + habit[tamia_id] .* num_obs, sigma);</span></span>
+<span id="cb20-42"><a href="#cb20-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   sigma ~ exponential(2);</span></span>
+<span id="cb20-43"><a href="#cb20-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb20-44"><a href="#cb20-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; generated quantities{</span></span>
+<span id="cb20-45"><a href="#cb20-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] ybar;</span></span>
+<span id="cb20-46"><a href="#cb20-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   ybar = starting_FID[tamia_id] + habit[tamia_id] .* num_obs;</span></span>
+<span id="cb20-47"><a href="#cb20-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] log_lik;</span></span>
+<span id="cb20-48"><a href="#cb20-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] yrep;</span></span>
+<span id="cb20-49"><a href="#cb20-49" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   for(i in 1:n){</span></span>
+<span id="cb20-50"><a href="#cb20-50" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     yrep[i] = exp(normal_rng(ybar[i], sigma));</span></span>
+<span id="cb20-51"><a href="#cb20-51" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     log_lik[i] = normal_lpdf(FID_log[i] | ybar[i], sigma);</span></span>
+<span id="cb20-52"><a href="#cb20-52" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   }</span></span>
+<span id="cb20-53"><a href="#cb20-53" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="square-root-transformed-response" class="level4">
+<h4 class="anchored" data-anchor-id="square-root-transformed-response">Square root transformed response</h4>
+<p>a model with constant slope</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(non_var_sqr)</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>non_var_sqr</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; data{</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   int n;</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   int n_tamia;</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] num_obs;</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] FID;</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   array[n] int&lt;lower=1, upper=n_tamia&gt; tamia_id;</span></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; transformed data{</span></span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] FID_sqr = sqrt(FID);</span></span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; parameters{</span></span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real habit;</span></span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real mu_starting;</span></span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real&lt;lower=0&gt; sigma_starting;</span></span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real&lt;lower=0&gt; sigma;</span></span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] zs;</span></span>
+<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; model{</span></span>
+<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // each tamia starts from a different point</span></span>
+<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] starting_FID;</span></span>
+<span id="cb21-23"><a href="#cb21-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   starting_FID = zs*sigma_starting + mu_starting;</span></span>
+<span id="cb21-24"><a href="#cb21-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   mu_starting ~ normal(6, 1);</span></span>
+<span id="cb21-25"><a href="#cb21-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   sigma_starting ~ exponential(1);</span></span>
+<span id="cb21-26"><a href="#cb21-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   zs ~ std_normal();</span></span>
+<span id="cb21-27"><a href="#cb21-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // log FID is normal</span></span>
+<span id="cb21-28"><a href="#cb21-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   FID_sqr ~ normal(starting_FID[tamia_id] + habit*num_obs, sigma);</span></span>
+<span id="cb21-29"><a href="#cb21-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   sigma ~ exponential(2);</span></span>
+<span id="cb21-30"><a href="#cb21-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   habit ~ normal(-1, .5);</span></span>
+<span id="cb21-31"><a href="#cb21-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb21-32"><a href="#cb21-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; generated quantities{</span></span>
+<span id="cb21-33"><a href="#cb21-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] starting_FID;</span></span>
+<span id="cb21-34"><a href="#cb21-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   starting_FID = zs*sigma_starting + mu_starting;</span></span>
+<span id="cb21-35"><a href="#cb21-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] ybar = starting_FID[tamia_id] + habit.* num_obs;</span></span>
+<span id="cb21-36"><a href="#cb21-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] log_lik;</span></span>
+<span id="cb21-37"><a href="#cb21-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] yrep;</span></span>
+<span id="cb21-38"><a href="#cb21-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   for(i in 1:n){</span></span>
+<span id="cb21-39"><a href="#cb21-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     yrep[i] = exp(normal_rng(ybar[i], sigma));</span></span>
+<span id="cb21-40"><a href="#cb21-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     log_lik[i] = normal_lpdf(FID_sqr[i] | ybar[i], sigma);</span></span>
+<span id="cb21-41"><a href="#cb21-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   }</span></span>
+<span id="cb21-42"><a href="#cb21-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p>A model with individual slopes</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(oui_var_sqr)</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>oui_var_sqr</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; data{</span></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   int n;</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   int n_tamia;</span></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] num_obs;</span></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] FID;</span></span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   array[n] int&lt;lower=1, upper=n_tamia&gt; tamia_id;</span></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; transformed data{</span></span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] FID_sqr = sqrt(FID);</span></span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; parameters{</span></span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real mu_starting;</span></span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real&lt;lower=0&gt; sigma_starting;</span></span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] zs;</span></span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real&lt;lower=0&gt; sigma_hab;</span></span>
+<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real&lt;lower=0&gt; mu_hab;</span></span>
+<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] zh;</span></span>
+<span id="cb22-20"><a href="#cb22-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real&lt;lower=0&gt; sigma;</span></span>
+<span id="cb22-21"><a href="#cb22-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb22-22"><a href="#cb22-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; transformed parameters {</span></span>
+<span id="cb22-23"><a href="#cb22-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // each tamia starts at a different point</span></span>
+<span id="cb22-24"><a href="#cb22-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] starting_FID;</span></span>
+<span id="cb22-25"><a href="#cb22-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   starting_FID = zs*sigma_starting + mu_starting;</span></span>
+<span id="cb22-26"><a href="#cb22-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // each tamia changes at a different rate</span></span>
+<span id="cb22-27"><a href="#cb22-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] habit;</span></span>
+<span id="cb22-28"><a href="#cb22-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   habit = zh*sigma_hab + mu_hab;</span></span>
+<span id="cb22-29"><a href="#cb22-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb22-30"><a href="#cb22-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; model{</span></span>
+<span id="cb22-31"><a href="#cb22-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // starting FID priors</span></span>
+<span id="cb22-32"><a href="#cb22-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   mu_starting ~ normal(6, 1);</span></span>
+<span id="cb22-33"><a href="#cb22-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   sigma_starting ~ exponential(1);</span></span>
+<span id="cb22-34"><a href="#cb22-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   zs ~ std_normal();</span></span>
+<span id="cb22-35"><a href="#cb22-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // habituation priors</span></span>
+<span id="cb22-36"><a href="#cb22-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   mu_hab ~ normal(-1, .5);</span></span>
+<span id="cb22-37"><a href="#cb22-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   sigma_hab ~ exponential(1);</span></span>
+<span id="cb22-38"><a href="#cb22-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   zh ~ std_normal();</span></span>
+<span id="cb22-39"><a href="#cb22-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // log FID is normal</span></span>
+<span id="cb22-40"><a href="#cb22-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   FID_sqr ~ normal(starting_FID[tamia_id] + habit[tamia_id] .* num_obs, sigma);</span></span>
+<span id="cb22-41"><a href="#cb22-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   sigma ~ exponential(2);</span></span>
+<span id="cb22-42"><a href="#cb22-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb22-43"><a href="#cb22-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; generated quantities{</span></span>
+<span id="cb22-44"><a href="#cb22-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] ybar = starting_FID[tamia_id] + habit[tamia_id] .* num_obs;</span></span>
+<span id="cb22-45"><a href="#cb22-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] log_lik;</span></span>
+<span id="cb22-46"><a href="#cb22-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] yrep;</span></span>
+<span id="cb22-47"><a href="#cb22-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   for(i in 1:n){</span></span>
+<span id="cb22-48"><a href="#cb22-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     yrep[i] = exp(normal_rng(ybar[i], sigma));</span></span>
+<span id="cb22-49"><a href="#cb22-49" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     log_lik[i] = normal_lpdf(FID_sqr[i] | ybar[i], sigma);</span></span>
+<span id="cb22-50"><a href="#cb22-50" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   }</span></span>
+<span id="cb22-51"><a href="#cb22-51" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="our-proposed-nonlinear-model" class="level4">
+<h4 class="anchored" data-anchor-id="our-proposed-nonlinear-model">Our proposed nonlinear model</h4>
+<p>a model with constant slope</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(non_var_nonlin)</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>non_var_nonlin</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; // same as many_tamia_log but keeps p and d constant for every indiidual.</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; // however they are allowed to have different values of m, for a treat</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; data{</span></span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   int n;</span></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   int n_tamia;</span></span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] num_obs;</span></span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] FID;</span></span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   array[n] int&lt;lower=1,upper=n_tamia&gt; tamia_id;</span></span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; transformed data{</span></span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] ln_nobs = log(num_obs);</span></span>
+<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; parameters{</span></span>
+<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] Z_m;</span></span>
+<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real mu_m;</span></span>
+<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real&lt;lower=0&gt; sigma_m;</span></span>
+<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real mu_p;</span></span>
+<span id="cb23-20"><a href="#cb23-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real mu_d;</span></span>
+<span id="cb23-21"><a href="#cb23-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb23-22"><a href="#cb23-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real&lt;lower=0&gt; shape;</span></span>
+<span id="cb23-23"><a href="#cb23-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb23-24"><a href="#cb23-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; transformed parameters {</span></span>
+<span id="cb23-25"><a href="#cb23-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // renaming parameters for consistency with many_tamia_log</span></span>
+<span id="cb23-26"><a href="#cb23-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] logitM = Z_m * sigma_m + mu_m;</span></span>
+<span id="cb23-27"><a href="#cb23-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] logitp = rep_vector(mu_p, n_tamia);</span></span>
+<span id="cb23-28"><a href="#cb23-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia]   logd = rep_vector(mu_d, n_tamia);</span></span>
+<span id="cb23-29"><a href="#cb23-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb23-30"><a href="#cb23-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; model{</span></span>
+<span id="cb23-31"><a href="#cb23-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // mean</span></span>
+<span id="cb23-32"><a href="#cb23-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] logmu;</span></span>
+<span id="cb23-33"><a href="#cb23-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   logmu = - 6.9</span></span>
+<span id="cb23-34"><a href="#cb23-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   - log_inv_logit(logitM[tamia_id])</span></span>
+<span id="cb23-35"><a href="#cb23-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   - log1m_exp( log_inv_logit(logitp[tamia_id])</span></span>
+<span id="cb23-36"><a href="#cb23-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   + ln_nobs</span></span>
+<span id="cb23-37"><a href="#cb23-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   - logd[tamia_id]</span></span>
+<span id="cb23-38"><a href="#cb23-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   - log1p_exp(ln_nobs - logd[tamia_id]) );</span></span>
+<span id="cb23-39"><a href="#cb23-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // likelihood</span></span>
+<span id="cb23-40"><a href="#cb23-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   FID ~ gamma(shape, shape * exp (logmu));</span></span>
+<span id="cb23-41"><a href="#cb23-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // priors</span></span>
+<span id="cb23-42"><a href="#cb23-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   Z_m ~ std_normal();</span></span>
+<span id="cb23-43"><a href="#cb23-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   mu_m ~ normal(1, 1);</span></span>
+<span id="cb23-44"><a href="#cb23-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   mu_p ~ normal(3, .5);</span></span>
+<span id="cb23-45"><a href="#cb23-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   mu_d ~ normal(.5, .5);</span></span>
+<span id="cb23-46"><a href="#cb23-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   sigma_m ~ exponential(1);</span></span>
+<span id="cb23-47"><a href="#cb23-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   shape ~ lognormal(2.3, .2);</span></span>
+<span id="cb23-48"><a href="#cb23-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb23-49"><a href="#cb23-49" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; generated quantities {</span></span>
+<span id="cb23-50"><a href="#cb23-50" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] mu;</span></span>
+<span id="cb23-51"><a href="#cb23-51" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] log_lik;</span></span>
+<span id="cb23-52"><a href="#cb23-52" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] yrep;</span></span>
+<span id="cb23-53"><a href="#cb23-53" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb23-54"><a href="#cb23-54" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   mu = exp(- 6.9</span></span>
+<span id="cb23-55"><a href="#cb23-55" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   - log_inv_logit(logitM[tamia_id])</span></span>
+<span id="cb23-56"><a href="#cb23-56" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   - log1m_exp(log_inv_logit(logitp[tamia_id])</span></span>
+<span id="cb23-57"><a href="#cb23-57" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   + ln_nobs</span></span>
+<span id="cb23-58"><a href="#cb23-58" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   - (logd[tamia_id])</span></span>
+<span id="cb23-59"><a href="#cb23-59" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   - log1p_exp(ln_nobs - logd[tamia_id])));</span></span>
+<span id="cb23-60"><a href="#cb23-60" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb23-61"><a href="#cb23-61" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   for (j in 1:n) {</span></span>
+<span id="cb23-62"><a href="#cb23-62" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     log_lik[j] = gamma_lpdf(FID[j] | shape, shape * mu[j]);</span></span>
+<span id="cb23-63"><a href="#cb23-63" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     yrep[j] = gamma_rng(shape, shape * mu[j]);</span></span>
+<span id="cb23-64"><a href="#cb23-64" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   }</span></span>
+<span id="cb23-65"><a href="#cb23-65" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p>A model with individual slopes</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(oui_var_nonlin)</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>oui_var_nonlin</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; data{</span></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   int n;</span></span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   int n_tamia;</span></span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] num_obs;</span></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] FID;</span></span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   array[n] int&lt;lower=1,upper=n_tamia&gt; tamia_id;</span></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; transformed data{</span></span>
+<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] ln_nobs = log(num_obs);</span></span>
+<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; parameters{</span></span>
+<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] Z_m;</span></span>
+<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real mu_m;</span></span>
+<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real&lt;lower=0&gt; sigma_m;</span></span>
+<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] Z_p;</span></span>
+<span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real mu_p;</span></span>
+<span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real&lt;lower=0&gt; sigma_p;</span></span>
+<span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] Z_d;</span></span>
+<span id="cb24-21"><a href="#cb24-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real mu_d;</span></span>
+<span id="cb24-22"><a href="#cb24-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real&lt;lower=0&gt; sigma_d;</span></span>
+<span id="cb24-23"><a href="#cb24-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb24-24"><a href="#cb24-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   real&lt;lower=0&gt; shape;</span></span>
+<span id="cb24-25"><a href="#cb24-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb24-26"><a href="#cb24-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; transformed parameters {</span></span>
+<span id="cb24-27"><a href="#cb24-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] logitM = Z_m * sigma_m + mu_m;</span></span>
+<span id="cb24-28"><a href="#cb24-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia] logitp = Z_p * sigma_p + mu_p;</span></span>
+<span id="cb24-29"><a href="#cb24-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n_tamia]   logd = Z_d * sigma_d + mu_d;</span></span>
+<span id="cb24-30"><a href="#cb24-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb24-31"><a href="#cb24-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; model{</span></span>
+<span id="cb24-32"><a href="#cb24-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // mean</span></span>
+<span id="cb24-33"><a href="#cb24-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] logmu;</span></span>
+<span id="cb24-34"><a href="#cb24-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   logmu = - 6.9</span></span>
+<span id="cb24-35"><a href="#cb24-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   - log_inv_logit(logitM[tamia_id])</span></span>
+<span id="cb24-36"><a href="#cb24-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   - log1m_exp( log_inv_logit(logitp[tamia_id])</span></span>
+<span id="cb24-37"><a href="#cb24-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   + ln_nobs</span></span>
+<span id="cb24-38"><a href="#cb24-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   - logd[tamia_id]</span></span>
+<span id="cb24-39"><a href="#cb24-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   - log1p_exp(ln_nobs - logd[tamia_id]) );</span></span>
+<span id="cb24-40"><a href="#cb24-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // likelihood</span></span>
+<span id="cb24-41"><a href="#cb24-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   FID ~ gamma(shape, shape * exp (logmu));</span></span>
+<span id="cb24-42"><a href="#cb24-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   // priors</span></span>
+<span id="cb24-43"><a href="#cb24-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   Z_m ~ std_normal();</span></span>
+<span id="cb24-44"><a href="#cb24-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   Z_p ~ std_normal();</span></span>
+<span id="cb24-45"><a href="#cb24-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   Z_d ~ std_normal();</span></span>
+<span id="cb24-46"><a href="#cb24-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   mu_m ~ normal(1, 1);</span></span>
+<span id="cb24-47"><a href="#cb24-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   mu_p ~ normal(3, .5);</span></span>
+<span id="cb24-48"><a href="#cb24-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   mu_d ~ normal(.5, .5);</span></span>
+<span id="cb24-49"><a href="#cb24-49" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   sigma_m ~ exponential(1);</span></span>
+<span id="cb24-50"><a href="#cb24-50" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   sigma_p ~ exponential(1);</span></span>
+<span id="cb24-51"><a href="#cb24-51" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   sigma_d ~ exponential(1);</span></span>
+<span id="cb24-52"><a href="#cb24-52" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   shape ~ lognormal(2.3, .2);</span></span>
+<span id="cb24-53"><a href="#cb24-53" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span>
+<span id="cb24-54"><a href="#cb24-54" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; generated quantities {</span></span>
+<span id="cb24-55"><a href="#cb24-55" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] mu;</span></span>
+<span id="cb24-56"><a href="#cb24-56" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] log_lik;</span></span>
+<span id="cb24-57"><a href="#cb24-57" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   vector[n] yrep;</span></span>
+<span id="cb24-58"><a href="#cb24-58" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb24-59"><a href="#cb24-59" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   mu = exp(- 6.9</span></span>
+<span id="cb24-60"><a href="#cb24-60" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   - log_inv_logit(logitM[tamia_id])</span></span>
+<span id="cb24-61"><a href="#cb24-61" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   - log1m_exp(log_inv_logit(logitp[tamia_id])</span></span>
+<span id="cb24-62"><a href="#cb24-62" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   + ln_nobs</span></span>
+<span id="cb24-63"><a href="#cb24-63" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   - (logd[tamia_id])</span></span>
+<span id="cb24-64"><a href="#cb24-64" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   - log1p_exp(ln_nobs - logd[tamia_id])));</span></span>
+<span id="cb24-65"><a href="#cb24-65" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb24-66"><a href="#cb24-66" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   for (j in 1:n) {</span></span>
+<span id="cb24-67"><a href="#cb24-67" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     log_lik[j] = gamma_lpdf(FID[j] | shape, shape * mu[j]);</span></span>
+<span id="cb24-68"><a href="#cb24-68" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;     yrep[j] = gamma_rng(shape, shape * mu[j]);</span></span>
+<span id="cb24-69"><a href="#cb24-69" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   }</span></span>
+<span id="cb24-70"><a href="#cb24-70" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; }</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+</section>
+<section id="results" class="level2">
+<h2 class="anchored" data-anchor-id="results">Results</h2>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(fig_panel)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <p>On the left is the average FID, on the right is observations around this average (note the slightly different scale). note that this variation is much lower than the variation we found in our dataset. There is also individual variation here, a bit greater than what was found in the real dataset.</p>
@@ -562,6 +1445,7 @@ g(\text{FID}_i) &amp;\sim \text{Normal}(\mu_i, \sigma)\\
 <p>These results show the increased power of our approach in comparison to two others: log transformed FID and square-root transformed FID. I think it is interesting that it seems a square-root model isn’t able to detect individual difference, even at small sample size.</p>
 <p>Its not that surprising that the nonlinear model fits well, since that is the data-generating model. What’s interesting to me is that the square root, and even the log - transformed model have quite weak results.</p>
 
+</section>
 </section>
 
 <div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
