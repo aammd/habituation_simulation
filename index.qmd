@@ -8,6 +8,8 @@ bibliography: references.bib
 comments: 
   hypothesis: true
 code-fold: true
+editor_options: 
+  chunk_output_type: console
 ---
 
 ## Introduction
@@ -303,6 +305,24 @@ cov_hier |>
 
 ```
 
+#### Prior predictive checks and 
+
+```{r}
+tar_load(design_data)
+tar_load(prior_draws_risk_ordinal_many_tamia_log)
+prior_draws_risk_ordinal_many_tamia_log |>
+  # use rowname as column name for easy merging later!
+  gather_draws(mu[rowname], ndraws = 5, seed = 42) |>
+  left_join(design_data |>
+              rownames_to_column(var = "rowname") |>
+              mutate(rowname = parse_number(rowname))) |>
+  ggplot(aes(x = num_obs, y = 1/.value, group = tamia_id)) +
+  geom_line() +
+  coord_cartesian(ylim = c(0, 1000)) +
+  facet_grid(.draw~Risk)
+```
+
+
 #### Design data
 
 So far, the simulations have used an idealized dataset where all individuals are observed a large number of times. 
@@ -385,7 +405,20 @@ A common way to work with this kind of data is to transform it.
 
 here I'm defining habituation in a specific way -- that while individuals might _start_ at different FID, their response to successive exposures to a stimulus is different. That is, there is individual variation in the "slope". 
 
+$$
+\begin{align}
+g(\text{FID}_i) &\sim \text{Normal}(\mu_i, \sigma)\\
+\mu_i &= \beta_{0, \text{indiv}[i]} + \beta_1\times(\text{exposure})
+\end{align}
+$$
+Which is compared to a model where slopes vary for each individual
 
+$$
+\begin{align}
+g(\text{FID}_i) &\sim \text{Normal}(\mu_i, \sigma)\\
+\mu_i &= \beta_{0, \text{indiv}[i]} + \beta_{1, \text{indiv}[i]}\times(\text{exposure})
+\end{align}
+$$
 
 ```{r}
 tar_load(fig_panel)

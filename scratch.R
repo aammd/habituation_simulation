@@ -2,6 +2,19 @@ library(tidyverse)
 library(targets)
 
 
+## ADD prior simulation figures to the document!
+
+## Add the stan programs to the document
+
+## Describe how the test with the males works
+
+## R code (necessary?) for simulations to validate the ordinal models..
+# not a priority
+
+## better descriptions of the individual variation test part
+# math, just the equation for the mean of each.
+
+
 job::job({targets::tar_make(cov_hier)})
 
 source("R/functions.R")
@@ -48,15 +61,6 @@ risk_sample |>
   gather_rvars(b_risk[param, trt]) |>
   arrange(param)
 
-prior_draws_risk_ordinal_many_tamia_log |>
-  gather_draws(mu[rowname], ndraws = 5) |>
-  left_join(design_tamia_num |>
-              rownames_to_column() |>
-              mutate(rowname = parse_number(rowname))) |>
-  ggplot(aes(x = num_obs, y = 1/.value, group = tamia_id)) +
-  geom_line() +
-  coord_cartesian(ylim = c(0, 1000)) +
-  facet_grid(.draw~risk_id)
 
 
 
