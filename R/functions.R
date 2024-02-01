@@ -387,7 +387,7 @@ n_tamia_simulation_sd_mpd <- function(
   d_indiv = exp(logd + tamia_d)
 
   df <- tidyr::expand_grid(
-    num_obs = 0:max_obs,
+    num_obs = 1:max_obs,
     tamia_id = 1:n_tamia) |>
     dplyr::mutate(
       p = p_indiv[tamia_id],
@@ -402,11 +402,12 @@ n_tamia_simulation_sd_mpd <- function(
        num_obs = df$num_obs,
        tamia_id = df$tamia_id,
        FID = df$FID,
+       mu = df$mu,
        # special part for stantargets magic power
        .join_data = list(
          logitM = logitM,
          logitp = logitp,
-         sd_logitp = sd_logitp,
+         # sd_logitp = sd_logitp,
          # tamia_p = tamia_p,
          # tamia_M = tamia_M,
          # tamia_d = tamia_d,
@@ -423,6 +424,101 @@ n_tamia_simulation_sd_mpd <- function(
 }
 
 
+#' Simulate from hyperparameters
+#'
+#' made this to match the prior specifications in many_tamia_corr
+#'
+#' @param .max_obs
+#' @param .n_tamia
+#'
+#' @return
+#' @export
+#'
+#' @examples
+n_tamia_sim_hyper <- function(.max_obs, .n_tamia){
+  mu_m <- rnorm(1, 1, 1)
+  sigma_m <- rexp(1, 1)
+  mu_p <- rnorm(1, 3, .5)
+  sigma_p <- rexp(1, 1)
+  mu_d <- rnorm(1, .5, .5)
+  sigma_d <- rexp(1, 1)
+  shape <- rlnorm(1, 2.3, .2)
+
+  output <- n_tamia_simulation_sd_mpd(
+    max_obs = .max_obs, n_tamia = .n_tamia,
+    logitM = mu_m, sd_logitM = sigma_m,
+    logitp = mu_p, sd_logitp = sigma_d,
+    logd   = mu_d, sd_logd   = sigma_d,
+    shape =  shape)
+
+  output$.join_data <- list(
+    mu_m = mu_m,
+    sigma_m = sigma_m,
+    mu_p = mu_p,
+    sigma_p = sigma_p,
+    mu_d = mu_d,
+    sigma_d = sigma_d,
+    shape = shape
+  )
+
+  return(output)
+}
+
+
+simulate_on_design <- function(designdata){
+  mu_m <- rnorm(1, 1, 1)
+  sigma_m <- rexp(1, 1)
+  mu_p <- rnorm(1, 3, .5)
+  sigma_p <- rexp(1, 1)
+  mu_d <- rnorm(1, .5, .5)
+  sigma_d <- rexp(1, 1)
+  shape <- rlnorm(1, 2.3, .2)
+
+  # browser()
+
+  design_sim_df <- designdata |>
+    ## make tamia_id numeric
+    mutate(tamia_id = as.numeric(as.factor(tamia_id))) |>
+    group_by(tamia_id) |>
+    filter(num_obs == max(num_obs)) |>
+    rowwise() |>
+    mutate(FID_list = list(
+      n_tamia_simulation_sd_mpd(
+        max_obs = num_obs,
+        n_tamia = 1,
+        logitM = mu_m, sd_logitM = sigma_m,
+        logitp = mu_p, sd_logitp = sigma_p,
+        logd = mu_d, sd_logd = sigma_d,
+        shape =  shape)),
+      FID_df = list(as_tibble(FID_list[c("num_obs", "FID", "tamia_id", "mu")]))
+    ) |>
+    select(-FID_list, -FID) |>
+    rename(tamia_real_id = tamia_id, max_obs = num_obs) |>
+    tidyr::unnest(FID_df)
+
+  output <- list(
+    n = length(design_sim_df$num_obs),
+    n_tamia = max(design_sim_df$tamia_real_id),
+    num_obs = design_sim_df$num_obs,
+    tamia_id = design_sim_df$tamia_real_id,
+    FID = design_sim_df$FID,
+    mu = design_sim_df$mu
+  )
+
+  output$.join_data <- list(
+    mu_m = mu_m,
+    sigma_m = sigma_m,
+    mu_p = mu_p,
+    sigma_p = sigma_p,
+    mu_d = mu_d,
+    sigma_d = sigma_d,
+    shape = shape
+  )
+
+  return(  output)
+}
+
+
 compare_two_models_loo <- function(model1,
                                    model2,
                                    names = c("m1", "m2"),
@@ -430,11 +526,11 @@ compare_two_models_loo <- function(model1,
 
   sim_data <-  n_tamia_simulation_sd_mpd(...)
 
-  m1_samples <- model1$sample(data = sim_data, refresh = 0L)
+  m1_samples <- model1$sample(data = sim_data, refresh = 0L, parallel_chains = 2)
 
   m1_loo <- m1_samples$loo()
   # targets::tar_load(some_groups)
-  m2_samples <- model2$sample(data = sim_data, refresh=0L)
+  m2_samples <- model2$sample(data = sim_data, refresh=0L, parallel_chains = 2)
   m2_loo <- m2_samples$loo()
   # simulate_normal(50)
   loolist <- list(m1_loo, m2_loo) |> purrr::set_names(names)
@@ -477,34 +573,59 @@ compare_two_models_loo <- function(model1,
 #   chains = 2,
 #   refresh = 0L)
 
-plot_loo_results <- function(loo_df) {
-
+#' plot the loo results
+#'
+#'
+#' @param loo_df data frame of loo results. needs columns named sim_id, n_tamia,
+#'   tar_batch and tar_rep
+#' @param best_model_name name of the model that "should" be the winner
+#'
+#' @return a ggplot
+plot_loo_table <- function(loo_df,
+                           best_model_name = "oui_var_log") {
   big_diff <- loo_df |>
     group_by(sim_id, n_tamia, tar_batch, tar_rep) |>
     filter(elpd_diff == min(elpd_diff)) |>
     ungroup() |>
     ## REVERSE the sign when the _wrong_ model wins
-    mutate(elpd_diff = if_else(model == "oui_var_log",
+    mutate(elpd_diff = if_else(model == best_model_name,
                                true = -elpd_diff,
                                false =elpd_diff ),
            elpd_low = elpd_diff - se_diff,
            elpd_hig = elpd_diff + se_diff)
 
+  big_diff |> # glimpse() |>
+    ggplot(aes(x = n_tamia,
+               y = elpd_diff,
+               ymin = elpd_low, ymax = elpd_hig))  +
+    geom_pointrange(position = position_jitter(height = 0, width = .5))
+}
 
 
-  big_diff |>
-    ungroup() |>
-    as.data.frame() |>
-    # filter(n_tamia == 10) |>
-    ggplot(
-      aes(
-        x = n_tamia,
-        y = elpd_diff,
-        ymin = elpd_low,
-        ymax = elpd_hig
-      )
-    )  +
-    geom_pointrange(position = position_jitter(height = 0)) +
-    facet_wrap(~n_tamia)
+#' make a list appropriate for a model that uses risk categories
+#'
+#' its a little tricky because it requires two lists of different lengths.
+#'
+#' @param dataset the design dataset
+#'
+#' @return a list. you might need to add something to it.
+make_risk_list <- function(dataset){
+  design_tamia_num <- dataset |>
+    mutate(tamia_id = as.numeric(as.factor(tamia_id)),
+           risk_id = as.numeric(as.factor(Risk))) |>
+    ## VERY important -- make sure they are in sequence
+    arrange(tamia_id)
 
+  design_risk_num <- design_tamia_num |>
+    select(tamia_id, risk_id) |>
+    unique()
+
+  dlist <- list(
+    n = nrow(design_tamia_num),
+    n_tamia = nrow(design_risk_num),
+    num_obs = design_tamia_num$num_obs,
+    FID = design_tamia_num$FID,
+    tamia_id = design_tamia_num$tamia_id,
+    risk_id = design_risk_num$risk_id)
+  return(dlist)
 }

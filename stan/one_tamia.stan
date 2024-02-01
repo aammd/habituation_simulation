@@ -17,8 +17,8 @@ model{
   mu = 1000 * m * (1 - p * num_obs ./ (d + num_obs));
 
   FID ~ gamma(shape, shape / mu);
-  shape ~ cauchy(0, 5);
-  logitM ~ std_normal();
-  logitp ~ normal(2, .5);
-  logd ~ normal(5, 2);
+  shape ~ lognormal(2.3, .2);
+  logitM ~ normal(3, .5);
+  logitp ~ normal(5, .5);
+  logd ~ normal(.8, .2);
 }

@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.3.353">
+<meta name="generator" content="quarto-1.3.450">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -132,11 +132,188 @@ div.csl-indent {
 <li><strong>Does the model recover parameters with large datasets?</strong> In models with many parameters, there is always the risk that parameters are difficult to estimate well. We fit a model with a large number of <em>Tamia</em> , each observed for many repeat observations, to validate that in this “idea” setting the model works well.</li>
 <li><strong>Does the model recover parameters in our dataset?</strong> Our field dataset contains unequal numbers of observations for each chipmunk, and field constraints mean that sample size in particular treatment combinations is limited. We simulate observations, while keeping every aspect of our dataset the same (treatments, number of observations per individual, etc). If a model can recover true parameters here, we can be more confident about applying it to our real observations.</li>
 <li><strong>Can unbalanced categories lead to spurious effect size estimates?</strong> Due to small sample effects, we do not have exactly equal representation in all of our treatment combinations. This is especially important in model 4, where we include sex and several aspects of individual personality in our model (see main text). Importantly, because of male chipmunk behaviour, males have fewer observations per individual than do females. We use simulations to confirm that effects of sex or personality on our results is not caused by the structure of the data.</li>
+<li><strong>What is our power to measure individual variation?</strong> One of the main purposes of our study is to measure individual variation in habituation. We compare our model with a method popular in the literature to detect these changes.</li>
 </ol>
 </section>
-<section id="mathematical-description" class="level2">
-<h2 class="anchored" data-anchor-id="mathematical-description">Mathematical description</h2>
-<p>In this Appendix we validate the following model of Flight Initiation distance:</p>
+<section id="which-priors-are-appropriate" class="level2">
+<h2 class="anchored" data-anchor-id="which-priors-are-appropriate">1. Which priors are appropriate?</h2>
+<section id="single-individual-model" class="level3">
+<h3 class="anchored" data-anchor-id="single-individual-model">Single-individual model</h3>
+<p>We begin by evaluating the simplest case: one individual <em>Tamia</em>, observed repeatedly and habituating to a constant stimulus. We model the habituation using the following assumptions:</p>
+<ul>
+<li><em>Tamia</em> begin with a high FID. This value is between 0 and 1000cm, because in our experiment this was the maximum distance at which an experimenter initiated the threat treatment.</li>
+<li>FID declines with repeat exposures. It never goes below 0, and can only decline. While other models allow individuals to <em>sensitize</em>, we do not.</li>
+<li>FID does not need to decline all the way to 0, but can stop between 0 and the starting value. * FID declines such that after a certain number of exposures, the individual’s FID is halfway between the starting value and the final value. The higher the number of exposures needed to get halfway to final FID, the slower the habituation.</li>
+</ul>
+<p>The curve we finally ended up fitting resembles a classic TYPE II functional response curve, but inverted and scaled to correspond to our system.</p>
+<p>This model is an adaptation of the classic Type II functional response, adapted to our study. It describes the FID of a chipmunk in three values:</p>
+<ul>
+<li><span class="math inline">\(M\)</span>, the initial flight initiation distance (proportion of 1000cm)</li>
+<li><span class="math inline">\(p\)</span>, the proportion of this initial FID which is lost through habituation</li>
+<li><span class="math inline">\(d\)</span>, the number of exposures to threat required for a chipmunk to move from <span class="math inline">\(M\)</span> to its final FID after habituation.</li>
+</ul>
+<p>This is an initial version of the model, which does not contain any effect of threat treatment or any effect of personality.</p>
+<p>Here is the full bayesian model, including our expression for the average and all the priors.</p>
+<p><span class="math display">\[
+\begin{align}
+\text{FID} &amp;\sim \text{Gamma}(\alpha, \alpha/\mu) \\
+\mu &amp;= M \times 1000 \times \left(1 - \frac{p X}{d + X} \right) \\
+\text{logit}(M) &amp;= M_0 \\
+\text{logit}(p) &amp;= p_0 \\
+\text{log}(d)   &amp;= d_0 \\
+M_0 &amp;\sim N(0.5, 0.5)\\
+p_0 &amp;\sim N(-1, 0.2)\\
+d_0 &amp;\sim N(1.5, 0.5)\\
+\alpha &amp;\sim \text{Gamma}(6.25, .25)
+\end{align}
+\]</span></p>
+</section>
+<section id="prior-simulations" class="level3">
+<h3 class="anchored" data-anchor-id="prior-simulations">Prior simulations</h3>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">one_tamia_simulation</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">25</span>,</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>                     <span class="at">logitM =</span> <span class="dv">3</span>,</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>                     <span class="at">logitp =</span> <span class="dv">5</span>,</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>                     <span class="at">logd =</span> .<span class="dv">8</span>,</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>                     <span class="at">shape =</span>  <span class="dv">10</span>)[<span class="fu">c</span>(<span class="st">"num_obs"</span>, <span class="st">"FID"</span>)] <span class="sc">|&gt;</span> </span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as.data.frame</span>() <span class="sc">|&gt;</span> </span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> FID)) <span class="sc">+</span> </span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Number of observations"</span>) <span class="sc">+</span> </span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-1-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption class="figure-caption">A simulation of 25 observations of one <em>Tamia</em> individual. Y-axis shows flight initiation distance in cm.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<section id="different-parameterizations" class="level4">
+<h4 class="anchored" data-anchor-id="different-parameterizations">Different parameterizations</h4>
+<p>I’ve chosen to experiment with writing this model on the log scale. This will give us more flexibility later, and may also help the model to fit accurately.</p>
+<p><span class="math display">\[
+\begin{align}
+\text{FID} &amp;\sim \text{Gamma}(\alpha, \alpha/\mu) \\
+\ln(\mu) &amp;= \ln(M) + 6.9 + \ln\left(1 - \frac{p \times X}{d + X} \right) \\
+\text{logit}(M) &amp;= M_0 \\
+\text{logit}(p) &amp;= p_0 \\
+\text{log}(d)   &amp;= d_0 \\
+M_0 &amp;\sim N(0.5, 0.5)\\
+p_0 &amp;\sim N(-1, 0.2)\\
+d_0 &amp;\sim N(1.5, 0.5)\\
+\alpha &amp;\sim \text{Gamma}(6.25, .25)
+\end{align}
+\]</span></p>
+<p>in the model file <code>one_tamia</code>, we use the mathematical model as written:</p>
+<pre><code>  vector[n] mu;
+  real m = inv_logit(logitM);
+  real p = inv_logit(logitp);
+  real d = exp(logd);
+  mu = 1000 * m * (1 - p * num_obs ./ (d + num_obs));
+
+  FID ~ gamma(shape, shape / mu);
+  shape ~ lognormal(2.3, .2);
+  logitM ~ normal(3, .5);
+  logitp ~ normal(5, .5);
+  logd ~ normal(.8, .2);</code></pre>
+<p>in model <code>one_tamia_log</code>, I write the expression for the average on the log scale</p>
+<pre><code>  vector[n] logmu;
+  logmu = - 6.9
+  - log_inv_logit(logitM)
+  - log1m_exp( log_inv_logit(logitp)
+  + ln_nobs
+  - logd
+  - log1p_exp(ln_nobs - logd) );
+
+  FID ~ gamma(shape, shape * exp (logmu));
+  shape ~ lognormal(2.3, .2);
+  logitM ~ normal(3, .5);
+  logitp ~ normal(5, .5);
+  logd ~ normal(.8, .2);</code></pre>
+<p>in model <code>one_tamia_log_shape</code> I write the model as above, but also put the shape parameter on the log scale:</p>
+<pre><code>  vector[n] logmu;
+  real m = inv_logit(logitM);
+  real p = inv_logit(logitp);
+  real d = exp(logd);
+  logmu = - 6.9
+  - log_inv_logit(logitM) - log1m_exp( log_inv_logit(logitp) + ln_nobs - logd - log1p_exp(ln_nobs - logd) );
+
+  FID ~ gamma(exp(shape), exp (logmu + shape));
+  shape ~ normal(2.3, .2);
+  logitM ~ normal(3, .5);
+  logitp ~ normal(5, .5);
+  logd ~ normal(.8, .2);</code></pre>
+<p>Simulations on these three models show they are all equally good at recovering parameters</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(comp_param)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>comp_param <span class="sc">|&gt;</span> </span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    variable <span class="sc">%in%</span>  <span class="fu">c</span>(<span class="st">"shape"</span>, </span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>                     <span class="st">"logitM"</span>,</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>                     <span class="st">"logitp"</span>, </span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>                     <span class="st">"logd"</span>)) <span class="sc">|&gt;</span> </span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">q50 =</span> <span class="fu">if_else</span>(</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    .name <span class="sc">==</span> <span class="st">"one_tamia_log_shape"</span> <span class="sc">&amp;</span> variable <span class="sc">==</span> <span class="st">"shape"</span>,</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">exp</span>(q50),</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    q50)) <span class="sc">|&gt;</span> </span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> variable, <span class="at">y =</span> q50)) <span class="sc">+</span> </span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">y =</span> .join_data), <span class="at">col =</span> <span class="st">"red"</span>) <span class="sc">+</span> </span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>.name)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>These results show that all three models give very similar inference. For the rest of this project I’m using the log-scale calculation as in <code>many_tamia_log</code>, above.</p>
+</section>
+<section id="prior-predictive-distribution" class="level4">
+<h4 class="anchored" data-anchor-id="prior-predictive-distribution">Prior predictive distribution</h4>
+<p>The above was fit to a model where the observations vary but the <em>parameters</em> all have the same values. However, to be sure our model works well we should fit it to a prior simulation of the dataset. Here, the values of all parameters are sampled from the prior distribution. Then, these values are used to simulate a dataset, the model is fit to it, and we see how often the true value falls within the 95% interval of the resulting posterior.</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(prior_pred)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>prior_pred <span class="sc">|&gt;</span> </span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(variable <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"logitM"</span>, <span class="st">"logitp"</span>, <span class="st">"logd"</span>, <span class="st">"shape"</span>)) <span class="sc">|&gt;</span>  </span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">q2.5 =</span> <span class="fu">if_else</span>(</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>      .name <span class="sc">==</span> <span class="st">"one_tamia_log_shape"</span> <span class="sc">&amp;</span> variable <span class="sc">==</span> <span class="st">"shape"</span>,</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>      <span class="fu">exp</span>(q2<span class="fl">.5</span>),</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>      q2<span class="fl">.5</span>),</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">q97.5 =</span> <span class="fu">if_else</span>(</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>      .name <span class="sc">==</span> <span class="st">"one_tamia_log_shape"</span> <span class="sc">&amp;</span> variable <span class="sc">==</span> <span class="st">"shape"</span>,</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>      <span class="fu">exp</span>(q97<span class="fl">.5</span>),</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>      q97<span class="fl">.5</span>)</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(.name, variable) <span class="sc">|&gt;</span> </span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(<span class="at">cov_95 =</span> <span class="fu">sum</span>(.join_data <span class="sc">&gt;</span> q2<span class="fl">.5</span> <span class="sc">&amp;</span> .join_data <span class="sc">&lt;</span> q97<span class="fl">.5</span>)<span class="sc">/</span><span class="fu">n</span>()) <span class="sc">|&gt;</span> </span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> variable, <span class="at">y =</span> cov_95)) <span class="sc">+</span> </span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>.name) <span class="sc">+</span> </span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">1</span>))</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; `summarise()` has grouped output by '.name'. You can override using the</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; `.groups` argument.</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>This shows that coverage is excellent for all parameters, with the exception of <code>logd</code>, which is recovered a little less than 80% of the time at the 95% confidence interval.</p>
+</section>
+</section>
+<section id="multiple-individuals" class="level3">
+<h3 class="anchored" data-anchor-id="multiple-individuals">Multiple individuals</h3>
+<p>To extend this model to multiple individuals we need to add hyperparameters to it:</p>
 <p><span class="math display">\[
 \begin{align}
 \text{FID} &amp;\sim \text{Gamma}(\alpha, \alpha/\mu) \\
@@ -156,153 +333,81 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 \alpha &amp;\sim \text{Gamma}(6.25, .25)
 \end{align}
 \]</span></p>
-<p>This model is an adaptation of the classic Type II functional response, adapted to our study. It describes the FID of a chipmunk in three values:</p>
-<ul>
-<li><span class="math inline">\(M\)</span>, the initial flight initiation distance (proportion of 1000cm)</li>
-<li><span class="math inline">\(p\)</span>, the proportion of this initial FID which is lost through habituation</li>
-<li><span class="math inline">\(d\)</span>, the number of exposures to threat required for a chipmunk to move from <span class="math inline">\(M\)</span> to its final FID after habituation.</li>
-</ul>
-<p>This is an initial version of the model, which does not contain any effect of threat treatment or any effect of personality.</p>
-<div>
-<details>
-<summary>Code</summary>
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(one_curve)</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>one_curve</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(one_sim_plot)</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>one_sim_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-<div id="fig-curves" class="cell quarto-layout-panel">
-<figure class="figure">
-<div class="quarto-layout-row quarto-layout-valign-top">
-<div class="cell-output-display quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 50.0%;justify-content: center;">
-<div id="fig-curves-1" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="index_files/figure-html/fig-curves-1.png" class="img-fluid figure-img" data-ref-parent="fig-curves" width="672"></p>
-<figcaption class="figure-caption">(a) The functional shape of our FID model. Dashed lines indicate the parameters that describe the curve: <span class="math inline">\(M\)</span> (orange line) <span class="math inline">\(d\)</span> (blue line) and <span class="math inline">\(M(1-p)\)</span> (red line)</figcaption>
-</figure>
-</div>
-</div>
-<div class="cell-output-display quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 50.0%;justify-content: center;">
-<div id="fig-curves-2" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="index_files/figure-html/fig-curves-2.png" class="img-fluid figure-img" data-ref-parent="fig-curves" width="672"></p>
-<figcaption class="figure-caption">(b) We simulate observations from a Gamma distribution centered on the predicted line.</figcaption>
-</figure>
-</div>
-</div>
-</div>
-<p></p><figcaption class="figure-caption">Figure&nbsp;1: Two examples of the function (left) and the potential observations (right) described by our model</figcaption><p></p>
-</figure>
-</div>
-</div>
-</section>
-<section id="prior-predictive-simulations" class="level2">
-<h2 class="anchored" data-anchor-id="prior-predictive-simulations">Prior predictive simulations</h2>
+<section id="prior-predictive-simulations" class="level4">
+<h4 class="anchored" data-anchor-id="prior-predictive-simulations">Prior predictive simulations</h4>
 <p>Simulating data from a prior is essential for defining priors that reflect knowledge about a system. Here we have chosen very general priors that cover a wide range of FID responses to threat treatment. This includes many which are biologically implausible, indicating that our prior is not too restrictive. However it excludes many cases that do not match our knowledge of the system: for example, FIDs which increase with exposure, or extremely rapid or slow habituation.</p>
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(model_prior_sim)</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>un_tamia <span class="ot">&lt;-</span> tibble<span class="sc">::</span><span class="fu">tibble</span>(<span class="at">tamia_id =</span> <span class="st">"un_tamia"</span>,</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>               <span class="at">num_obs =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>)</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>un_tamia_pred <span class="ot">&lt;-</span> un_tamia <span class="sc">|&gt;</span> </span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  tidybayes<span class="sc">::</span><span class="fu">add_predicted_draws</span>(model_prior_sim,</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">ndraws =</span> <span class="dv">15</span>,</span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>                                 <span class="at">seed =</span> <span class="dv">1234</span>)</span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>un_tamia_expect <span class="ot">&lt;-</span> un_tamia <span class="sc">|&gt;</span> </span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  tidybayes<span class="sc">::</span><span class="fu">add_epred_draws</span>(model_prior_sim,</span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>                             <span class="at">ndraws =</span> <span class="dv">15</span>, </span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>                             <span class="at">seed =</span> <span class="dv">1234</span>)</span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>un_tamia_expect <span class="sc">|&gt;</span> </span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(un_tamia_pred) <span class="sc">|&gt;</span></span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> .prediction)) <span class="sc">+</span> </span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_point</span>() <span class="sc">+</span> </span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> .epred)) <span class="sc">+</span> </span>
-<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">facet_wrap</span>(<span class="sc">~</span>.draw, <span class="at">ncol=</span><span class="dv">5</span>) <span class="sc">+</span> </span>
-<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Number of observations"</span>, <span class="at">y =</span> <span class="st">"FID"</span>) <span class="sc">+</span> </span>
-<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span>
-<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Joining with `by = join_by(tamia_id, num_obs, .row, .chain, .iteration, .draw)`</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(prior_pred_data)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>prior_pred_data <span class="sc">|&gt;</span> </span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map_depth</span>(<span class="dv">2</span>, <span class="sc">~</span>.x[<span class="fu">c</span>(<span class="st">"num_obs"</span>, <span class="st">"FID"</span>)]) <span class="sc">|&gt;</span> </span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">flatten</span>() <span class="sc">|&gt;</span> </span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">map_df</span>(as_tibble, <span class="at">.id =</span> <span class="st">"rep"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> FID)) <span class="sc">+</span> </span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_point</span>() <span class="sc">+</span>  </span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">facet_wrap</span>(<span class="sc">~</span>rep) <span class="sc">+</span> </span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Number of observations"</span>, <span class="at">y =</span> <span class="st">"FID"</span>) <span class="sc">+</span> </span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 <div id="fig-prior-pred" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure">
 <p><img src="index_files/figure-html/fig-prior-pred-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Figure&nbsp;2: Simulations from the prior predictive distribution for our model of FID (Flight initiation distance). Each panel is a simulated chipmunk.</figcaption>
+<figcaption class="figure-caption">Figure&nbsp;1: Simulations from the prior predictive distribution for our model of FID (Flight initiation distance). Each panel is a simulated chipmunk.</figcaption>
 </figure>
 </div>
 </div>
 </div>
-<p>We can understand hyperparameters (i.e.&nbsp;<span class="math inline">\(\sigma_M, \sigma_p, \sigma_d\)</span> and <span class="math inline">\(R\)</span>) by simulating and asking if they represent a plausible range of between-tamia variation. Again, we try to cover a range of plausible values while allowing for extreme cases.</p>
+<div class=".{callout-note}">
+<p><span class="math inline">\(p\)</span> can be understood as the strength of habituation. The higher (more positive), the more of the original FID is lost over time.</p>
+</div>
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(prior_simulation_manytamia)</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>prior_sim_df <span class="ot">&lt;-</span> prior_simulation_manytamia <span class="sc">|&gt;</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">add_rownames</span>(<span class="at">var =</span> <span class="st">"sim_id"</span>) <span class="sc">|&gt;</span> </span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">unnest</span>(<span class="at">cols =</span> simulated_data)</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Warning: `add_rownames()` was deprecated in dplyr 1.0.0.</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; ℹ Please use `tibble::rownames_to_column()` instead.</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>prior_sim_df <span class="sc">|&gt;</span> </span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> num_obs,</span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>             <span class="at">y =</span> epred, </span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>             <span class="at">group =</span> tamia_id)) <span class="sc">+</span> </span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span> </span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>draw_id, <span class="at">ncol =</span> <span class="dv">5</span>) <span class="sc">+</span> </span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="co"># coord_cartesian(ylim = c(0, 1000)) + </span></span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># geom_hline(yintercept = 1000, lty = 2) +</span></span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="fu">map_df</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>,</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>       <span class="sc">~</span><span class="fu">n_tamia_sim_hyper</span>(</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>         <span class="at">.max_obs =</span> <span class="dv">22</span>,</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>         <span class="at">.n_tamia =</span> <span class="dv">15</span>)[<span class="fu">c</span>(<span class="st">"num_obs"</span>, <span class="st">"FID"</span>, <span class="st">"tamia_id"</span>, <span class="st">"mu"</span>)] <span class="sc">|&gt;</span> </span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>         <span class="fu">as_tibble</span>(),</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>       <span class="at">.id =</span> <span class="st">"sim"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> mu, <span class="at">group =</span> tamia_id))  <span class="sc">+</span> </span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span> </span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>sim, <span class="at">ncol =</span> <span class="dv">4</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
-<div id="fig-prior-hyper" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure">
-<p><img src="index_files/figure-html/fig-prior-hyper-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Figure&nbsp;3: Simulations from the prior predictive distribution for our model of FID (Flight initiation distance), showing the effect of hyperparameters on between-individual differences</figcaption>
-</figure>
+<p><img src="index_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
-</div>
+<p>We can understand hyperparameters (i.e.&nbsp;<span class="math inline">\(\sigma_M, \sigma_p, \sigma_d\)</span> and <span class="math inline">\(R\)</span>) by simulating and asking if they represent a plausible range of between-tamia variation. Again, we try to cover a range of plausible values while allowing for extreme cases.</p>
 </section>
-<section id="proportion-of-coverage" class="level2">
-<h2 class="anchored" data-anchor-id="proportion-of-coverage">Proportion of coverage</h2>
-<p>The above simulations are each datasets which, according to our model, are plausible observations for our experiment. If the same model is fit to the data, we should recover the parameters we used to create it. We fit the model described above to 25 simulated datasets. Each simulation produced a different datset with distinct parameter values. The model is fit to each, and we report a model as ‘successful’ if that simulation’s true parameter value is above the 2.5th percentile and below the 97.5th (ie within the 95% credible interval).</p>
+<section id="proportion-of-coverage" class="level4">
+<h4 class="anchored" data-anchor-id="proportion-of-coverage">Proportion of coverage</h4>
+<p>I performed the same coverage tests as before, but this time on the hierarchical model for multiple individuals. This demonstrates that we can accurately</p>
 <div>
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(coverage_manytamia)</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>coverage_manytamia <span class="sc">|&gt;</span> </span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">y =</span> variable, <span class="at">x =</span> prop_covered)) <span class="sc">+</span> </span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>))</span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>coverage_manytamia <span class="sc">|&gt;</span> </span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span>stringr<span class="sc">::</span><span class="fu">str_detect</span>(variable, <span class="st">"r_.*"</span>)) <span class="sc">|&gt;</span> </span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">y =</span> variable, <span class="at">x =</span> prop_covered)) <span class="sc">+</span> </span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(cov_hier)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>cov_hier <span class="sc">|&gt;</span> </span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(variable <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"mu_m"</span>, <span class="st">"mu_p"</span>, <span class="st">"mu_d"</span>, <span class="st">"shape"</span>, <span class="st">"sigma_m"</span>, <span class="st">"sigma_d"</span>, <span class="st">"sigma_p"</span>)) <span class="sc">|&gt;</span>  </span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(.name, variable) <span class="sc">|&gt;</span> </span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(<span class="at">cov_95 =</span> <span class="fu">sum</span>(.join_data <span class="sc">&gt;</span> q2<span class="fl">.5</span> <span class="sc">&amp;</span> .join_data <span class="sc">&lt;</span> q97<span class="fl">.5</span>)<span class="sc">/</span><span class="fu">n</span>()) <span class="sc">|&gt;</span> </span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> variable, <span class="at">y =</span> cov_95)) <span class="sc">+</span> </span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>.name) <span class="sc">+</span> </span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">1</span>))</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; `summarise()` has grouped output by '.name'. You can override using the</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; `.groups` argument.</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell quarto-layout-panel">
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="index_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid figure-img" width="672"></p>
-<figcaption class="figure-caption">Proportion of coverage for all parameters (left) and for all the population-level parameters (right). That is, the right-hand figure shows only the main effects, shape parameter, and hyperparameters; it excludes the individual values of M, p and d for each individual.</figcaption>
-</figure>
-</div>
-</div>
-<div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="index_files/figure-html/unnamed-chunk-3-2.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="index_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid figure-img" width="672"></p>
 <figcaption class="figure-caption">Proportion of coverage for all parameters (left) and for all the population-level parameters (right). That is, the right-hand figure shows only the main effects, shape parameter, and hyperparameters; it excludes the individual values of M, p and d for each individual.</figcaption>
 </figure>
 </div>
@@ -311,82 +416,83 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 </div>
 </div>
 </section>
-<section id="design-data" class="level2">
-<h2 class="anchored" data-anchor-id="design-data">Design data</h2>
-<p>let’s use the actual design data to fit the model</p>
-<section id="prior-predictive-checks" class="level3">
-<h3 class="anchored" data-anchor-id="prior-predictive-checks">Prior predictive checks</h3>
+<section id="prior-predictive-checks-and" class="level4">
+<h4 class="anchored" data-anchor-id="prior-predictive-checks-and">Prior predictive checks and</h4>
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(prior_simulation_design)</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>prior_simulation_design <span class="sc">|&gt;</span> </span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  tidyr<span class="sc">::</span><span class="fu">unnest</span>(simulated_data) <span class="sc">|&gt;</span> </span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> epred, <span class="at">group =</span> tamia_id)) <span class="sc">+</span> </span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span> </span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>draw_id, <span class="at">ncol =</span> <span class="dv">5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(design_data)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(prior_draws_risk_ordinal_many_tamia_log)</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>prior_draws_risk_ordinal_many_tamia_log <span class="sc">|&gt;</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># use rowname as column name for easy merging later!</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gather_draws</span>(mu[rowname], <span class="at">ndraws =</span> <span class="dv">5</span>, <span class="at">seed =</span> <span class="dv">42</span>) <span class="sc">|&gt;</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(design_data <span class="sc">|&gt;</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>              <span class="fu">rownames_to_column</span>(<span class="at">var =</span> <span class="st">"rowname"</span>) <span class="sc">|&gt;</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>              <span class="fu">mutate</span>(<span class="at">rowname =</span> <span class="fu">parse_number</span>(rowname))) <span class="sc">|&gt;</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> <span class="dv">1</span><span class="sc">/</span>.value, <span class="at">group =</span> tamia_id)) <span class="sc">+</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1000</span>)) <span class="sc">+</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_grid</span>(.draw<span class="sc">~</span>Risk)</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Joining with `by = join_by(rowname)`</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid" width="672"></p>
+<p><img src="index_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid" width="672"></p>
 </div>
 </div>
-<p>fit to many of these and look at posterior coverage</p>
-<div class="cell">
+</section>
+<section id="design-data" class="level4">
+<h4 class="anchored" data-anchor-id="design-data">Design data</h4>
+<p>So far, the simulations have used an idealized dataset where all individuals are observed a large number of times. In the following section I assess the model’s performance on a data simulation based on the real dataset. In reality, different individuals are not observed the same number of times. Observations, in this dataset, have a double impact on the model: they are simultaneously the independent variable and also represent greater power. Therefore its important to find out if a realistic distribution of observations per individual actually results in less power or worse performace.</p>
+<div>
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(coverage_design)</span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>coverage_design <span class="sc">|&gt;</span> </span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">y =</span> variable, <span class="at">x =</span> prop_covered)) <span class="sc">+</span> </span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(design_sim)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>design_simulation <span class="ot">&lt;-</span> design_sim[<span class="fu">c</span>(<span class="st">"num_obs"</span>, <span class="st">"tamia_id"</span>, <span class="st">"FID"</span>, <span class="st">"mu"</span>)] <span class="sc">|&gt;</span> <span class="fu">as.data.frame</span>()</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>design_simulation <span class="sc">|&gt;</span> </span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> mu, <span class="at">group =</span> tamia_id)) <span class="sc">+</span> <span class="fu">geom_line</span>()</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>design_simulation <span class="sc">|&gt;</span> </span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> num_obs, <span class="at">y =</span> FID, <span class="at">group =</span> tamia_id)) <span class="sc">+</span> <span class="fu">geom_point</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
-<div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid" width="672"></p>
-</div>
-<details>
-<summary>Code</summary>
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>coverage_manytamia <span class="sc">|&gt;</span> </span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span>stringr<span class="sc">::</span><span class="fu">str_detect</span>(variable, <span class="st">"r_.*"</span>)) <span class="sc">|&gt;</span> </span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">y =</span> variable, <span class="at">x =</span> prop_covered)) <span class="sc">+</span> </span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-<div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-5-2.png" class="img-fluid" width="672"></p>
+<div class="cell quarto-layout-panel">
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption class="figure-caption">Simulations from the prior distribution.</figcaption>
+</figure>
 </div>
 </div>
-<p>model 1, same procedure</p>
-<div class="cell">
-<details>
-<summary>Code</summary>
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(coverage_model_1)</span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>coverage_model_1 <span class="sc">|&gt;</span> </span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">y =</span> variable, <span class="at">x =</span> prop_covered)) <span class="sc">+</span> </span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-<div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid" width="672"></p>
-</div>
-<details>
-<summary>Code</summary>
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>coverage_model_1 <span class="sc">|&gt;</span> </span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span>stringr<span class="sc">::</span><span class="fu">str_detect</span>(variable, <span class="st">"r_.*"</span>)) <span class="sc">|&gt;</span> </span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">y =</span> variable, <span class="at">x =</span> prop_covered)) <span class="sc">+</span> </span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-<div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-6-2.png" class="img-fluid" width="672"></p>
+<div class="cell-output-display quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="index_files/figure-html/unnamed-chunk-8-2.png" class="img-fluid figure-img" width="672"></p>
+<figcaption class="figure-caption">Simulations from the prior distribution.</figcaption>
+</figure>
 </div>
 </div>
+</div>
+</div>
+</div>
+<p>Fit to many of these and look at posterior coverage</p>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+under construction
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>the following validation was done with an earlier version of the process (using brms, not Stan) and needs to be updated. It might change a bit as a result.</p>
+</div>
+</div>
+</section>
 </section>
 </section>
 <section id="model-4" class="level2">
@@ -416,49 +522,45 @@ d_0 &amp;\sim N(1.5, 0.5)\\
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>targets<span class="sc">::</span><span class="fu">tar_load</span>(model4_posterior_plot)</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>model4_posterior_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># targets::tar_load(model4_posterior_plot)</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="co"># model4_posterior_plot</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
-<div class="cell-output-display">
-<p><img src="index_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid" width="672"></p>
-</div>
 </div>
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(nonzero_model4_table)</span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(nonzero_model4_table)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># tar_load(nonzero_model4_table)</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="co"># knitr::kable(nonzero_model4_table)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
-<div class="cell-output-display">
-<table class="table table-sm table-striped small">
-<thead>
-<tr class="header">
-<th style="text-align: left;">variable</th>
-<th style="text-align: right;">prop_nonzero</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: left;">b_logitM_scaleNumber_captures</td>
-<td style="text-align: right;">0.16</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">b_logitp_SexM</td>
-<td style="text-align: right;">0.44</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">b_logitp_scaleDocility</td>
-<td style="text-align: right;">0.28</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">b_logitp_scaleExploration</td>
-<td style="text-align: right;">0.08</td>
-</tr>
-</tbody>
-</table>
 </div>
+<p>In general, the model finds posteriors that are close to 0 for all coefficients. However, there is a surprising bias towards spurious sex-differences in the value of <span class="math inline">\(p\)</span>. This is possibly due to the lower sample size of male chipmunks</p>
+</section>
+<section id="transformations" class="level1">
+<h1>Transformations</h1>
+<p>A common way to work with this kind of data is to transform it.</p>
+<p>here I’m defining habituation in a specific way – that while individuals might <em>start</em> at different FID, their response to successive exposures to a stimulus is different. That is, there is individual variation in the “slope”.</p>
+<p><span class="math display">\[
+\begin{align}
+g(\text{FID}_i) &amp;\sim \text{Normal}(\mu_i, \sigma)\\
+\mu_i &amp;= \beta_{0, \text{indiv}[i]} + \beta_1\times(\text{exposure})
+\end{align}
+\]</span> Which is compared to a model where slopes vary for each individual</p>
+<p><span class="math display">\[
+\begin{align}
+g(\text{FID}_i) &amp;\sim \text{Normal}(\mu_i, \sigma)\\
+\mu_i &amp;= \beta_{0, \text{indiv}[i]} + \beta_{1, \text{indiv}[i]}\times(\text{exposure})
+\end{align}
+\]</span></p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tar_load</span>(fig_panel)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 </div>
-<p>In general, the model finds posteriors that are close to 0 for all coefficients. However, there is a surprising bias towards supurious sex-differences in the value of <span class="math inline">\(p\)</span>. This is possibly due to the lower sample size of male chipmunks</p>
+<p>On the left is the average FID, on the right is observations around this average (note the slightly different scale). note that this variation is much lower than the variation we found in our dataset. There is also individual variation here, a bit greater than what was found in the real dataset.</p>
+<p>I simulated many datasets that looked like this one. For each, I fit a pair of models. One model has individual differences in habituation (i.e.&nbsp;close to the truth); the other model has constant habituation for all individuals. For each dataset, I compared both models using LOO-IC (basically a bayesian AIC). The following figure shows the model comparison output. More negative numbers mean the model WITH variation is winning (the numbers measure how much lower the LOO-IC score is for the constant-habituation model)</p>
+<p>These results show the increased power of our approach in comparison to two others: log transformed FID and square-root transformed FID. I think it is interesting that it seems a square-root model isn’t able to detect individual difference, even at small sample size.</p>
+<p>Its not that surprising that the nonlinear model fits well, since that is the data-generating model. What’s interesting to me is that the square root, and even the log - transformed model have quite weak results.</p>
 
 </section>
 

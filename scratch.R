@@ -2,6 +2,66 @@ library(tidyverse)
 library(targets)
 
 
+## ADD prior simulation figures to the document!
+
+## Add the stan programs to the document
+
+## Describe how the test with the males works
+
+## R code (necessary?) for simulations to validate the ordinal models..
+# not a priority
+
+## better descriptions of the individual variation test part
+# math, just the equation for the mean of each.
+
+
+job::job({targets::tar_make(cov_hier)})
+
+source("R/functions.R")
+
+dlist <- one_tamia_simulation(1:25,
+                              logitM = 3,
+                              logitp = 5,
+                              logd = .8,
+                              shape =  10)[c("n","num_obs", "FID")]
+
+risk_many_tamia_log <- cmdstanr::cmdstan_model("stan/risk_ordinal_many_tamia_log.stan")
+
+tar_load(design_data)
+
+risk_sample <- risk_many_tamia_log$sample(
+  data = dlist, chains =1 )
+library(tidybayes)
+
+risk_sample$summary(variables = "b_risk")
+
+risk_sample |>
+  gather_rvars(b_risk[param, trt]) |>
+  arrange(param)
+
+
+
+
+
+
+risk_sample |>
+  gather_draws(yrep[rownum], ndraws = 1) |>
+  bind_cols(design_tamia_num) |>
+  ggplot(aes(x = num_obs, y = .value, group = tamia_id)) +
+  geom_line()
+
+
+
+dlist
+one_tamia_log_shape$sample(data =  dlist,
+                           chains = 1, parallel_chains = 1)
+
+one_tamia <- cmdstanr::cmdstan_model("stan/one_tamia.stan")
+one_tamia$sample(data =  dlist,
+                           chains = 1, parallel_chains = 1)
+
+
+
 tar_make(no_indiv_draws_log_linear_no_indiv_effect)
 tar_make(no_indiv_summary_log_linear_no_indiv_effect)
 
@@ -130,5 +190,33 @@ some_yrep <- one_sp_fit_draws_one_tamia_log |>
 
 bayesplot::ppc_dens_overlay(one_sp_fit_data$FID,
                             yrep = some_yrep)# +
-  coord_cartesian(xlim = c(0, 2.5))
+coord_cartesian(xlim = c(0, 2.5))
+
+
+##
+
+tar_make(many_sp_fit_draws_many_tamia_log)
+tar_load(many_sp_fit_draws_many_tamia_log)
+tar_load(many_sp_fit_data)
+
+some_yrep <- many_sp_fit_draws_many_tamia_log |>
+  select(starts_with("yrep")) |>
+  head(100) |>
+  as.matrix()
+
+bayesplot::ppc_dens_overlay(many_sp_fit_data$FID,
+                            yrep = some_yrep)# +
+coord_cartesian(xlim = c(0, 2.5))
+
+
+one_dataset <- n_tamia_sim_hyper(
+      .max_obs = 25, .n_tamia = 30)
+
+one_dataset$.join_data
+
+many_tamia_corr <- cmdstanr::cmdstan_model("stan/many_tamia_corr.stan")
+many_tamia_corr_post <- many_tamia_corr$sample(data = one_dataset, parallel_chains = 2, chains = 1)
+
+many_tamia_corr_post$summary(variables = c("sigma_mpd", "mu_mpd", "shape"))
+
 

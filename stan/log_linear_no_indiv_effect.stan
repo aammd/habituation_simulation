@@ -4,7 +4,8 @@ data{
   vector[n] FID;
 }
 transformed data{
-  vector[n] FID_log = log(FID);
+  vector[n] FID_log;
+  FID_log = log(FID);
 }
 parameters{
   real habit;
@@ -18,7 +19,9 @@ model{
   starting_FID ~ normal(6, 1);
 }
 generated quantities{
-  vector[n] ybar = starting_FID + habit*num_obs;
+  vector[n] ybar;
+  ybar = starting_FID + habit*num_obs;
+  // log likelihood and posterior predictive
   vector[n] log_lik;
   vector[n] yrep;
   for(i in 1:n){

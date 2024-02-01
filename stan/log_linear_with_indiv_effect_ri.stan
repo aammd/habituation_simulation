@@ -6,7 +6,8 @@ data{
   array[n] int<lower=1, upper=n_tamia> tamia_id;
 }
 transformed data{
-  vector[n] FID_log = log(FID);
+  vector[n] FID_log;
+  FID_log = log(FID);
 }
 parameters{
   real mu_starting;
@@ -39,7 +40,8 @@ model{
   sigma ~ exponential(2);
 }
 generated quantities{
-  vector[n] ybar = starting_FID[tamia_id] + habit[tamia_id] .* num_obs;
+  vector[n] ybar;
+  ybar = starting_FID[tamia_id] + habit[tamia_id] .* num_obs;
   vector[n] log_lik;
   vector[n] yrep;
   for(i in 1:n){

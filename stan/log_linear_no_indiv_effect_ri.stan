@@ -6,7 +6,8 @@ data{
   array[n] int<lower=1, upper=n_tamia> tamia_id;
 }
 transformed data{
-  vector[n] FID_log = log(FID);
+  vector[n] FID_log;
+  FID_log = log(FID);
 }
 parameters{
   real habit;
@@ -15,10 +16,13 @@ parameters{
   real<lower=0> sigma;
   vector[n_tamia] zs;
 }
-model{
+transformed parameters{
   // each tamia starts from a different point
   vector[n_tamia] starting_FID;
   starting_FID = zs*sigma_starting + mu_starting;
+}
+model{
+  // average starting, sd of starting point, z-scores
   mu_starting ~ normal(6, 1);
   sigma_starting ~ exponential(1);
   zs ~ std_normal();
@@ -28,9 +32,10 @@ model{
   habit ~ normal(-1, .5);
 }
 generated quantities{
-  vector[n_tamia] starting_FID;
-  starting_FID = zs*sigma_starting + mu_starting;
-  vector[n] ybar = starting_FID[tamia_id] + habit.* num_obs;
+  // calculate average
+  vector[n] ybar;
+  ybar= starting_FID[tamia_id] + habit.* num_obs;
+  // log likelihood and yrep
   vector[n] log_lik;
   vector[n] yrep;
   for(i in 1:n){
