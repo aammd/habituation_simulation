@@ -7,7 +7,8 @@ theme: minty
 bibliography: references.bib
 comments: 
   hypothesis: true
-code-fold: true
+code-fold: false
+toc: true
 editor_options: 
   chunk_output_type: console
 ---
@@ -508,9 +509,7 @@ oui_var_log
 #### Square root transformed response
 
 a model with constant slope
-```{r}
-#| echo: true
-#| eval: true
+```{r, results='asis'}
 #| class-output: stan
 tar_load(non_var_sqr)
 non_var_sqr
@@ -518,8 +517,6 @@ non_var_sqr
 
 A model with individual slopes
 ```{r}
-#| echo: true
-#| eval: true
 #| class-output: stan
 tar_load(oui_var_sqr)
 oui_var_sqr
@@ -529,8 +526,6 @@ oui_var_sqr
 
 a model with constant slope
 ```{r}
-#| echo: true
-#| eval: true
 #| class-output: stan
 tar_load(non_var_nonlin)
 non_var_nonlin
@@ -538,8 +533,6 @@ non_var_nonlin
 
 A model with individual slopes
 ```{r}
-#| echo: true
-#| eval: true
 #| class-output: stan
 tar_load(oui_var_nonlin)
 oui_var_nonlin
@@ -550,6 +543,7 @@ oui_var_nonlin
 
 ```{r}
 tar_load(fig_panel)
+fig_panel
 ```
 
 
