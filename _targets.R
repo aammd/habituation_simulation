@@ -281,11 +281,6 @@ tar_target(
     reps = 2,
     names = tidyselect::any_of("sim_id")
   ),
-##
-  tar_target(
-    fig_loo_size,
-    command = plot_loo_results(pwr_log)
-  ),
   ### Square Root section --------
 
   tar_target(

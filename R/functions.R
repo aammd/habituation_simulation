@@ -573,38 +573,6 @@ compare_two_models_loo <- function(model1,
 #   chains = 2,
 #   refresh = 0L)
 
-plot_loo_results <- function(loo_df) {
-
-  big_diff <- loo_df |>
-    group_by(sim_id, n_tamia, tar_batch, tar_rep) |>
-    filter(elpd_diff == min(elpd_diff)) |>
-    ungroup() |>
-    ## REVERSE the sign when the _wrong_ model wins
-    mutate(elpd_diff = if_else(model == "oui_var_log",
-                               true = -elpd_diff,
-                               false =elpd_diff ),
-           elpd_low = elpd_diff - se_diff,
-           elpd_hig = elpd_diff + se_diff)
-
-
-
-  big_diff |>
-    ungroup() |>
-    as.data.frame() |>
-    # filter(n_tamia == 10) |>
-    ggplot(
-      aes(
-        x = n_tamia,
-        y = elpd_diff,
-        ymin = elpd_low,
-        ymax = elpd_hig
-      )
-    )  +
-    geom_pointrange(position = position_jitter(height = 0)) +
-    facet_wrap(~n_tamia)
-
-}
-
 #' plot the loo results
 #'
 #'

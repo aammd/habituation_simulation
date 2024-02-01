@@ -29,28 +29,6 @@ risk_many_tamia_log <- cmdstanr::cmdstan_model("stan/risk_ordinal_many_tamia_log
 
 tar_load(design_data)
 
-make_risk_list <- function(dataset){
-  design_tamia_num <- design_data |>
-    mutate(tamia_id = as.numeric(as.factor(tamia_id)),
-           risk_id = as.numeric(as.factor(Risk))) |>
-    ## VERY important -- make sure they are in sequence
-    arrange(tamia_id) |>
-    glimpse()
-
-  design_risk_num <- design_tamia_num |>
-    select(tamia_id, risk_id) |>
-    unique()
-
-  dlist <- list(
-    n = nrow(design_tamia_num),
-    n_tamia = nrow(design_risk_num),
-    num_obs = design_tamia_num$num_obs,
-    FID = design_tamia_num$FID,
-    tamia_id = design_tamia_num$tamia_id,
-    risk_id = design_risk_num$risk_id)
-  return(dlist)
-}
-
 risk_sample <- risk_many_tamia_log$sample(
   data = dlist, chains =1 )
 library(tidybayes)
